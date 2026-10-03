@@ -1,51 +1,31 @@
-# Building a Remote MCP Server on Cloudflare (Without Auth)
+# Muyiribi
 
-This example allows you to deploy a stateless remote MCP server that doesn't require authentication on Cloudflare Workers. It implements the MCP 2026-07-28 specification while remaining compatible with legacy clients for ordinary tool calls.
+Business directory for Uganda. Cloudflare Worker + Neon Postgres, with a simple web UI and an MCP endpoint for AI tools.
 
-## Get started:
+## Routes
 
-[![Deploy to Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-authless)
+- `/` landing page
+- `/signup`, `/login`, `/logout` phone + password accounts (password show/hide toggle)
+- `/add` add a business listing (creation limit depends on tier; description min 40 characters)
+- `/mcp` MCP endpoint with tools: `search_businesses`, `get_business`, `list_categories`
 
-This will deploy your MCP server to a URL like: `remote-mcp-server-authless.<your-account>.workers.dev/mcp`
+Results are ranked by tier, highest first (black, green, blue, free).
 
-Alternatively, you can use the command line below to get the remote MCP Server created on your local machine:
+## Setup
 
-```bash
-npm create cloudflare@latest -- my-mcp-server --template=cloudflare/ai/demos/remote-mcp-authless
-```
+1. Run `schema.sql` once in the Neon SQL console.
+2. Install dependencies: `npm install`
+3. Set the database secret: `npx wrangler secret put DATABASE_URL` (your Neon connection string)
+4. Local dev: `npm run dev`
+5. Deploy: `npm run deploy`
 
-## Customizing your MCP Server
+Your MCP URL will be `https://<worker-name>.<subdomain>.workers.dev/mcp`.
 
-To add your own [tools](https://developers.cloudflare.com/agents/model-context-protocol/protocol/tools/) to the MCP server, register each tool on the `McpServer` created in the `createServer()` function in `src/index.ts` using `server.registerTool(...)`.
+## Notes
 
-## Connect to Cloudflare AI Playground
-
-You can connect to your MCP server from the Cloudflare AI Playground, which is a remote MCP client:
-
-1. Go to https://playground.ai.cloudflare.com/
-2. Enter your deployed MCP server URL (`remote-mcp-server-authless.<your-account>.workers.dev/mcp`)
-3. You can now use your MCP tools directly from the playground!
-
-## Connect Claude Desktop to your MCP server
-
-You can also connect to your remote MCP server from local MCP clients, by using the [mcp-remote proxy](https://www.npmjs.com/package/mcp-remote).
-
-To connect to your MCP server from Claude Desktop, follow [Anthropic's Quickstart](https://modelcontextprotocol.io/quickstart/user) and within Claude Desktop go to Settings > Developer > Edit Config.
-
-Update with this configuration:
-
-```json
-{
-	"mcpServers": {
-		"calculator": {
-			"command": "npx",
-			"args": [
-				"mcp-remote",
-				"http://localhost:8787/mcp" // or remote-mcp-server-authless.your-account.workers.dev/mcp
-			]
-		}
-	}
-}
-```
-
-Restart Claude and you should see the tools become available.
+- Passwords are hashed with PBKDF2 (Web Crypto). Accounts lock for 15 minutes after 5 failed logins.
+- Creation limit (how many listings an account can create): Free 3, Blue 5, Green 7, Black unlimited.
+- Search limit (how many of an account's listings can appear in search): Free 1, Blue 3, Green 5, Black unlimited. Newest first.
+- Results are ordered by tier, highest first.
+- Paid tiers only count while an active subscription exists. No flow creates subscriptions yet; payments come later.
+- Phone verification (OTP via TextBee) is not implemented yet. `users.phone_verified` is ready for it.
