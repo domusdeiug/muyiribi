@@ -446,7 +446,10 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 	// GetTransactionStatus check so the state is not stale while polling.
 	if (path === "/pricing/check" && method === "GET") {
 		const sessionUser = await currentUser(request, sql);
-		if (!sessionUser) return json({ state: "signed_out" }, 401);
+		if (!sessionUser) {
+			const wantHtml = request.headers.get("Accept")?.includes("text/html");
+			return wantHtml ? redirect("/login") : json({ state: "signed_out" }, 401);
+		}
 
 		const latest = await findLatestTierPayment(sql, sessionUser.id);
 		if (latest && !latest.verified_at) {
@@ -457,6 +460,12 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 			}
 		}
 		const { state } = await tierStateFor(sql, sessionUser.id);
+
+		// Browser request (e.g. user tapped "Check status"): redirect to the status page so
+		// they see a proper UI after we've refreshed the payment state from PesaPal.
+		const wantHtml = request.headers.get("Accept")?.includes("text/html");
+		if (wantHtml) return redirect("/pricing/status");
+
 		return json({ state });
 	}
 

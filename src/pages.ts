@@ -286,7 +286,7 @@ export function tierPaymentStatusPage(
 			`<h1>Pay for ${esc(state.tierName)}</h1>
 <p>UGX ${state.amountUgx.toLocaleString()}. Tap the button below to complete your payment on PesaPal. You will be brought back here automatically when it's done.</p>
 <p><a href="${esc(state.redirectUrl)}"><button>Go to payment page &rarr;</button></a></p>
-<p id="pay-status" class="hint">Already paid? <a href="/pricing/status">Check status</a>.</p>`,
+<p id="pay-status" class="hint">Already paid? <a href="/pricing/check">Check status</a>.</p>`,
 			user,
 		);
 	}
