@@ -1,5 +1,5 @@
 // Thin wrapper around the UgaText REST API (https://ugatext.com/api/v1/sms/send).
-// Requires UGATEXT_CLIENT_ID / UGATEXT_CLIENT_SECRET as Worker secrets.
+// Requires UGATEXT_API_KEY as a Worker secret (Bearer token).
 
 export interface SendSmsResult {
 	success: boolean;
@@ -20,8 +20,7 @@ export async function sendSms(env: Env, phone: string, message: string): Promise
 		const res = await fetch("https://ugatext.com/api/v1/sms/send", {
 			method: "POST",
 			headers: {
-				"Client-ID": env.UGATEXT_CLIENT_ID,
-				"Client-Secret": env.UGATEXT_CLIENT_SECRET,
+				"Authorization": `Bearer ${env.UGATEXT_API_KEY}`,
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({ phone: toUgatextPhone(phone), senderId: "UGATEXT", message }),
