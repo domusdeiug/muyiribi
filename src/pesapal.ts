@@ -1,9 +1,10 @@
 // PesaPal API 3.0 (JSON) client for Cloudflare Workers.
 //
-// Flow: SubmitOrderRequest returns a redirect_url for PesaPal's hosted checkout. We load
-// that URL in an iframe on our own status page, so the user never leaves the site. We send
-// the phone number (or email) the user registered with so it's pre-filled on PesaPal's
-// page; the user can still change the mobile money number used to pay there.
+// Flow: SubmitOrderRequest returns a redirect_url for PesaPal's hosted checkout. We send
+// the user to that URL directly (full page navigation). PesaPal redirects the full browser
+// tab back to /pricing/callback after payment, which then resolves to /pricing/status.
+// The phone number (or email) the user registered with is pre-filled on PesaPal's page;
+// the user can still change the mobile money number used to pay there.
 //
 // Status is only trusted from GetTransactionStatus. The callback and IPN parameters do not
 // carry the payment status (PesaPal docs: "for security reasons").
@@ -65,7 +66,7 @@ export interface PesapalOrder {
 }
 
 /**
- * Creates a PesaPal order and returns the hosted checkout URL to load in an iframe.
+ * Creates a PesaPal order and returns the hosted checkout URL to redirect the user to.
  * `workerBaseUrl` is the Worker's own origin, used to build the callback and IPN URLs.
  * `callbackPath` is where PesaPal sends the user after payment (our status page).
  */
@@ -98,9 +99,9 @@ export async function submitVerificationOrder(
 			amount: opts.amountUgx,
 			description: opts.description,
 			callback_url: callbackUrl,
-			// PARENT_WINDOW: after payment PesaPal returns to the page containing the iframe,
-			// which is our status page. The user is not stranded inside the frame.
-			redirect_mode: "PARENT_WINDOW",
+			// TOP_WINDOW: after payment PesaPal redirects the full browser tab back to
+			// the callback URL. No iframe involved.
+			redirect_mode: "TOP_WINDOW",
 			notification_id: ipnId,
 			branch: "Muyiribi",
 			// PesaPal requires phone_number OR email_address in billing_address. We send the

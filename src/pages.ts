@@ -284,11 +284,9 @@ export function tierPaymentStatusPage(
 		return layout(
 			"Pricing · payment",
 			`<h1>Pay for ${esc(state.tierName)}</h1>
-<p>UGX ${state.amountUgx.toLocaleString()}. Choose your mobile money network below and approve the payment. This page will continue automatically when it's done.</p>
-<iframe id="pay-frame" src="${esc(state.redirectUrl)}" title="PesaPal payment" style="width:100%;height:560px;border:1px solid #ddd;border-radius:6px" allow="payment"></iframe>
-<p id="pay-status" class="hint">Waiting for payment…</p>
-<p class="hint">Trouble with the frame? <a href="${esc(state.redirectUrl)}" target="_top">Open the payment page</a>.</p>
-${pollScript("/pricing/check", "/pricing/status")}`,
+<p>UGX ${state.amountUgx.toLocaleString()}. Tap the button below to complete your payment on PesaPal. You will be brought back here automatically when it's done.</p>
+<p><a href="${esc(state.redirectUrl)}"><button>Go to payment page &rarr;</button></a></p>
+<p id="pay-status" class="hint">Already paid? <a href="/pricing/status">Check status</a>.</p>`,
 			user,
 		);
 	}
