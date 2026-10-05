@@ -1,7 +1,12 @@
-// PesaPal order submission, ported from the reference Deno/Supabase edge function to this
-// Cloudflare Worker. Key difference: billing_address.phone_number is filled in, which is
-// what makes PesaPal push a mobile-money prompt straight to the phone instead of only
-// offering a hosted payment page.
+// PesaPal API 3.0 (JSON) client for Cloudflare Workers.
+//
+// Flow: SubmitOrderRequest returns a redirect_url for PesaPal's hosted checkout. We load
+// that URL in an iframe on our own status page, so the user never leaves the site. We send
+// the phone number (or email) the user registered with so it's pre-filled on PesaPal's
+// page; the user can still change the mobile money number used to pay there.
+//
+// Status is only trusted from GetTransactionStatus. The callback and IPN parameters do not
+// carry the payment status (PesaPal docs: "for security reasons").
 //
 // Requires PESAPAL_CONSUMER_KEY / PESAPAL_CONSUMER_SECRET as Worker secrets, and optionally
 // PESAPAL_ENV = "live" (defaults to sandbox).
@@ -12,7 +17,17 @@ function pesapalBase(env: Env): string {
 		: "https://cybqa.pesapal.com/pesapalv3";
 }
 
+// ---------- token cache ----------
+// PesaPal tokens expire after about 5 minutes. We keep one for 4 minutes per isolate so
+// polling does not request a new token on every call. Module scope is per isolate, so this
+// is a best-effort cache, not a guarantee; a stale token is simply refreshed.
+
+const TOKEN_TTL_MS = 4 * 60 * 1000;
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
 async function getPesapalToken(env: Env): Promise<string> {
+	if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.token;
+
 	const res = await fetch(`${pesapalBase(env)}/api/Auth/RequestToken`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -23,7 +38,9 @@ async function getPesapalToken(env: Env): Promise<string> {
 	});
 	const json = (await res.json()) as Record<string, unknown>;
 	if (!json.token) throw new Error(`PesaPal auth failed: ${JSON.stringify(json)}`);
-	return json.token as string;
+
+	cachedToken = { token: json.token as string, expiresAt: Date.now() + TOKEN_TTL_MS };
+	return cachedToken.token;
 }
 
 async function registerIpn(env: Env, token: string, ipnUrl: string): Promise<string> {
@@ -48,18 +65,25 @@ export interface PesapalOrder {
 }
 
 /**
- * Submits a PesaPal order for a verification payment and pushes a mobile-money prompt
- * to `phone`. `workerBaseUrl` should be the Worker's own origin (e.g. from
- * `new URL(request.url).origin`), used to build the IPN/callback URL.
+ * Creates a PesaPal order and returns the hosted checkout URL to load in an iframe.
+ * `workerBaseUrl` is the Worker's own origin, used to build the callback and IPN URLs.
+ * `callbackPath` is where PesaPal sends the user after payment (our status page).
  */
 export async function submitVerificationOrder(
 	env: Env,
 	workerBaseUrl: string,
-	opts: { merchantRef: string; amountUgx: number; phone: string },
+	opts: {
+		merchantRef: string;
+		amountUgx: number;
+		description: string;
+		phone?: string | null;
+		email?: string | null;
+	},
 ): Promise<PesapalOrder> {
 	const token = await getPesapalToken(env);
-	const callbackUrl = `${workerBaseUrl}/payments/pesapal-ipn`;
-	const ipnId = await registerIpn(env, token, callbackUrl);
+	const ipnUrl = `${workerBaseUrl}/payments/pesapal-ipn`;
+	const callbackUrl = `${workerBaseUrl}/pricing/callback`;
+	const ipnId = await registerIpn(env, token, ipnUrl);
 
 	const res = await fetch(`${pesapalBase(env)}/api/Transactions/SubmitOrderRequest`, {
 		method: "POST",
@@ -72,21 +96,20 @@ export async function submitVerificationOrder(
 			id: opts.merchantRef,
 			currency: "UGX",
 			amount: opts.amountUgx,
-			description: "Muyiribi business verification",
+			description: opts.description,
 			callback_url: callbackUrl,
+			// PARENT_WINDOW: after payment PesaPal returns to the page containing the iframe,
+			// which is our status page. The user is not stranded inside the frame.
+			redirect_mode: "PARENT_WINDOW",
 			notification_id: ipnId,
 			branch: "Muyiribi",
+			// PesaPal requires phone_number OR email_address in billing_address. We send the
+			// number (or email) the user registered with, so it's pre-filled on PesaPal's
+			// checkout; the user can still pick a different mobile money number there.
 			billing_address: {
-				phone_number: opts.phone.replace(/^\+/, ""),
 				country_code: "UG",
-				email_address: "",
-				first_name: "",
-				last_name: "",
-				line_1: "",
-				city: "",
-				state: "",
-				postal_code: "",
-				zip_code: "",
+				...(opts.phone ? { phone_number: opts.phone } : {}),
+				...(opts.email ? { email_address: opts.email } : {}),
 			},
 		}),
 	});
@@ -101,7 +124,7 @@ export async function submitVerificationOrder(
 }
 
 export interface PesapalTransactionStatus {
-	status: string; // normalised uppercase, e.g. "COMPLETED", "FAILED", "INVALID"
+	status: string; // normalised uppercase, e.g. "COMPLETED", "FAILED", "INVALID", "PENDING"
 }
 
 export async function getPesapalTransactionStatus(
@@ -110,7 +133,7 @@ export async function getPesapalTransactionStatus(
 ): Promise<PesapalTransactionStatus> {
 	const token = await getPesapalToken(env);
 	const res = await fetch(
-		`${pesapalBase(env)}/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`,
+		`${pesapalBase(env)}/api/Transactions/GetTransactionStatus?orderTrackingId=${encodeURIComponent(orderTrackingId)}`,
 		{
 			headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
 		},

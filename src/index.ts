@@ -33,8 +33,9 @@ import {
 	setTierPaymentRef,
 	findTierPaymentByRef,
 	findLatestTierPayment,
-	markTierPaymentPaidWithOtp,
+	markTierPaymentPaid,
 	markTierPaymentFailed,
+	setTierPaymentOtp,
 	recordOtpAttempt,
 	invalidateOtp,
 	markTierPaymentConfirmed,
@@ -48,7 +49,6 @@ import {
 	addListingPage,
 	pricingPage,
 	tierPaymentStatusPage,
-	tierPaymentConfirmPage,
 	DESCRIPTION_MIN,
 } from "./pages";
 import { submitVerificationOrder, getPesapalTransactionStatus, isCompletedStatus } from "./pesapal";
@@ -122,6 +122,13 @@ function html(body: string, status = 200, headers: Record<string, string> = {}):
 	});
 }
 
+function json(body: unknown, status = 200): Response {
+	return new Response(JSON.stringify(body), {
+		status,
+		headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+	});
+}
+
 function redirect(location: string, headers: Record<string, string> = {}): Response {
 	return new Response(null, { status: 303, headers: { location, ...headers } });
 }
@@ -164,27 +171,38 @@ async function startSession(sql: Sql, userId: number): Promise<Response> {
 
 /**
  * Queries PesaPal for a pending tier payment's status and, if it has resolved, updates the
- * DB. Every tier requires phone verification, so a completed payment always triggers an SMS
- * OTP and waits for /pricing/confirm. No-ops if not pending or not found.
+ * DB. On completion it only marks the payment paid. The OTP is not sent here, because the
+ * user has not yet confirmed the verification number (it is entered on the OTP step).
+ * No-ops if not pending or not found.
  */
 async function checkTierPayment(sql: Sql, env: Env, payment: TierPayment) {
 	if (payment.payment_status !== "pending" || !payment.payment_ref) return;
 
 	const txStatus = await getPesapalTransactionStatus(env, payment.payment_ref);
 	if (isCompletedStatus(txStatus.status)) {
-		const otp = generateOtp();
-		const otpHash = await hashToken(otp);
-		const expiresAt = new Date(Date.now() + OTP_TTL_MS);
-		await markTierPaymentPaidWithOtp(sql, payment.id, otpHash, expiresAt);
-		await sendSms(
-			env,
-			payment.phone,
-			`Your Muyiribi verification code is ${otp}. It expires in 30 minutes.`,
-		);
+		await markTierPaymentPaid(sql, payment.id);
 	} else if (txStatus.status === "FAILED" || txStatus.status === "INVALID") {
 		await markTierPaymentFailed(sql, payment.id);
 	}
 	// Any other status (pending, etc.): leave as-is.
+}
+
+/**
+ * Maps the latest tier payment to the single view state the status page renders.
+ * Shared by the status page and the polling endpoint so they always agree.
+ */
+async function tierStateFor(sql: Sql, userId: number) {
+	const latest = await findLatestTierPayment(sql, userId);
+	if (!latest) return { latest: null, state: "none" as const };
+	if (latest.verified_at) return { latest, state: "done" as const };
+	if (latest.payment_status === "failed") return { latest, state: "failed" as const };
+	if (latest.payment_status === "paid") {
+		// Paid, number not yet submitted for OTP -> otp. Code sent -> otp_sent.
+		const sent = !!latest.otp_hash && !!latest.otp_expires_at &&
+			new Date(latest.otp_expires_at) > new Date();
+		return { latest, state: sent ? ("otp_sent" as const) : ("otp" as const) };
+	}
+	return { latest, state: "paying" as const };
 }
 
 // ---------- web routes ----------
@@ -329,10 +347,9 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 		const profile = await getUserProfile(sql, sessionUser.id);
 		if (!profile) return redirect("/login");
 
-		// If there's a payment in flight for this user, send them to its status page
-		// instead of letting them start another one.
-		const latest = await findLatestTierPayment(sql, sessionUser.id);
-		if (latest && latest.payment_status !== "failed" && !latest.verified_at) {
+		// A payment still in flight goes to its status page instead of starting another.
+		const { state } = await tierStateFor(sql, sessionUser.id);
+		if (state !== "none" && state !== "failed" && state !== "done") {
 			return redirect("/pricing/status");
 		}
 
@@ -340,11 +357,13 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 			pricingPage(sessionUser, tiers, {
 				currentTierCode: profile.tier_code,
 				phoneVerified: profile.phone_verified,
-				defaultPhone: profile.business_contact_phone ?? profile.phone,
 			}),
 		);
 	}
 
+	// Starts a payment: creates the order, then shows the status page with PesaPal's checkout
+	// in an iframe. We pass the phone number the user registered with so PesaPal pre-fills
+	// it; the user can still change the mobile money number used to pay on PesaPal's page.
 	if (path === "/pricing/start" && method === "POST") {
 		const sessionUser = await currentUser(request, sql);
 		if (!sessionUser) return redirect("/login");
@@ -354,41 +373,25 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 		const tier = tiers.find((t) => t.code === f.tier);
 		if (!tier || tier.price_ugx <= 0) return redirect("/pricing");
 
-		const phone = normalisePhone(f.phone ?? "");
-		if (!phone) {
-			return html(
-				pricingPage(sessionUser, tiers, { error: "Enter a valid Uganda phone number." }),
-				400,
-			);
-		}
-
-		const id = await createTierPayment(sql, sessionUser.id, tier.code, phone, tier.price_ugx);
+		const id = await createTierPayment(sql, sessionUser.id, tier.code, tier.price_ugx);
 
 		try {
 			const origin = new URL(request.url).origin;
 			const order = await submitVerificationOrder(env, origin, {
 				merchantRef: `tier-${id}`,
 				amountUgx: tier.price_ugx,
-				phone,
+				description: `Muyiribi ${tier.name} tier`,
+				phone: sessionUser.phone,
 			});
-			await setTierPaymentRef(sql, id, order.order_tracking_id);
-			return html(
-				tierPaymentStatusPage(sessionUser, {
-					kind: "awaiting_payment",
-					tierName: tier.name,
-					phone,
-					amountUgx: tier.price_ugx,
-					redirectUrl: order.redirect_url,
-				}),
-			);
+			await setTierPaymentRef(sql, id, order.order_tracking_id, order.redirect_url);
+			return redirect("/pricing/status");
 		} catch (err) {
 			await markTierPaymentFailed(sql, id);
 			const message = err instanceof Error ? err.message : "Could not start the payment.";
 			return html(
 				tierPaymentStatusPage(sessionUser, {
-					kind: "payment_failed",
+					kind: "failed",
 					tierName: tier.name,
-					phone,
 					error: message,
 				}),
 				502,
@@ -396,107 +399,155 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 		}
 	}
 
+	// The one screen for a payment in progress, and the redirect target for every state.
 	if (path === "/pricing/status" && method === "GET") {
 		const sessionUser = await currentUser(request, sql);
 		if (!sessionUser) return redirect("/login");
 
-		const latest = await findLatestTierPayment(sql, sessionUser.id);
+		const { latest, state } = await tierStateFor(sql, sessionUser.id);
 		if (!latest) return redirect("/pricing");
 		const tiers = await listTiers(sql);
 		const tierName = tiers.find((t) => t.code === latest.tier_code)?.name ?? latest.tier_code;
 
-		if (latest.verified_at) {
-			const profile = await getUserProfile(sql, sessionUser.id);
+		if (state === "done") {
 			return html(
 				tierPaymentStatusPage(sessionUser, {
 					kind: "done",
 					tierName,
-					phone: latest.phone,
-					phoneVerified: profile?.phone_verified ?? false,
+					phone: latest.phone ?? "",
 				}),
 			);
 		}
-		if (latest.payment_status === "failed") {
+		if (state === "failed") {
+			return html(tierPaymentStatusPage(sessionUser, { kind: "failed", tierName }));
+		}
+		if (state === "otp" || state === "otp_sent") {
 			return html(
 				tierPaymentStatusPage(sessionUser, {
-					kind: "payment_failed",
+					kind: state === "otp_sent" ? "otp_sent" : "otp",
 					tierName,
-					phone: latest.phone,
+					// Prefill with the account's business contact number, or login phone.
+					phone: latest.phone ?? (await getUserProfile(sql, sessionUser.id))?.phone ?? "",
 				}),
 			);
 		}
-		if (latest.payment_status === "paid") {
-			return html(
-				tierPaymentStatusPage(sessionUser, {
-					kind: "awaiting_otp",
-					tierName,
-					phone: latest.phone,
-				}),
-			);
-		}
+		// paying: the PesaPal checkout URL was stored when the order was created.
 		return html(
 			tierPaymentStatusPage(sessionUser, {
-				kind: "awaiting_payment",
+				kind: "paying",
 				tierName,
-				phone: latest.phone,
 				amountUgx: latest.amount_ugx,
-				redirectUrl: "",
+				redirectUrl: latest.redirect_url ?? "",
 			}),
 		);
 	}
 
-	if (path === "/pricing/confirm" && method === "GET") {
+	// JSON state for the polling script on the paying screen. It only reads the DB, plus one
+	// GetTransactionStatus check so the state is not stale while polling.
+	if (path === "/pricing/check" && method === "GET") {
 		const sessionUser = await currentUser(request, sql);
-		if (!sessionUser) return redirect("/login");
+		if (!sessionUser) return json({ state: "signed_out" }, 401);
+
 		const latest = await findLatestTierPayment(sql, sessionUser.id);
-		if (!latest || latest.verified_at || latest.payment_status !== "paid")
-			return redirect("/pricing");
-		if (
-			!latest.otp_hash ||
-			!latest.otp_expires_at ||
-			new Date(latest.otp_expires_at) <= new Date()
-		) {
-			return html(tierPaymentConfirmPage(sessionUser, { expired: true }));
+		if (latest && !latest.verified_at) {
+			try {
+				await checkTierPayment(sql, env, latest);
+			} catch (err) {
+				console.error("pricing/check error:", err);
+			}
 		}
-		return html(tierPaymentConfirmPage(sessionUser, { phone: latest.phone }));
+		const { state } = await tierStateFor(sql, sessionUser.id);
+		return json({ state });
 	}
 
+	// Phone number confirmed on the OTP step: validate it, store it against this payment,
+	// and send the code. Sending only happens here, so the number is always the one shown.
+	if (path === "/pricing/send-code" && method === "POST") {
+		const sessionUser = await currentUser(request, sql);
+		if (!sessionUser) return redirect("/login");
+
+		const latest = await findLatestTierPayment(sql, sessionUser.id);
+		if (!latest || latest.verified_at || latest.payment_status !== "paid")
+			return redirect("/pricing/status");
+
+		const tiers = await listTiers(sql);
+		const tierName = tiers.find((t) => t.code === latest.tier_code)?.name ?? latest.tier_code;
+		const f = await readForm(request);
+		const phone = normalisePhone(f.phone ?? "");
+		if (!phone) {
+			return html(
+				tierPaymentStatusPage(sessionUser, {
+					kind: "otp",
+					tierName,
+					phone: f.phone ?? "",
+					error: "Enter a valid Uganda phone number.",
+				}),
+				400,
+			);
+		}
+
+		const otp = generateOtp();
+		const otpHash = await hashToken(otp);
+		await setTierPaymentOtp(sql, latest.id, phone, otpHash, new Date(Date.now() + OTP_TTL_MS));
+
+		const sms = await sendSms(
+			env,
+			phone,
+			`Your Muyiribi verification code is ${otp}. It expires in 30 minutes.`,
+		);
+		if (!sms.success) {
+			return html(
+				tierPaymentStatusPage(sessionUser, {
+					kind: "otp",
+					tierName,
+					phone,
+					error: "We couldn't send the code just now. Try again in a moment.",
+				}),
+				502,
+			);
+		}
+
+		return html(
+			tierPaymentStatusPage(sessionUser, { kind: "otp_sent", tierName, phone }),
+		);
+	}
+
+	// Code entry. Checks the hash, enforces attempts, then grants the tier.
 	if (path === "/pricing/confirm" && method === "POST") {
 		const sessionUser = await currentUser(request, sql);
 		if (!sessionUser) return redirect("/login");
+
 		const latest = await findLatestTierPayment(sql, sessionUser.id);
 		if (!latest || latest.verified_at || latest.payment_status !== "paid")
-			return redirect("/pricing");
-
-		if (
-			!latest.otp_hash ||
-			!latest.otp_expires_at ||
-			new Date(latest.otp_expires_at) <= new Date()
-		) {
-			return html(tierPaymentConfirmPage(sessionUser, { expired: true }));
+			return redirect("/pricing/status");
+		if (!latest.otp_hash || !latest.otp_expires_at || !latest.phone) {
+			return redirect("/pricing/status");
+		}
+		if (new Date(latest.otp_expires_at) <= new Date()) {
+			return redirect("/pricing/status");
 		}
 
 		const f = await readForm(request);
-		const code = (f.code ?? "").trim();
-		const codeHash = await hashToken(code);
+		const codeHash = await hashToken((f.code ?? "").trim());
+		const tiers = await listTiers(sql);
+		const tierName = tiers.find((t) => t.code === latest.tier_code)?.name ?? latest.tier_code;
 
 		if (codeHash !== latest.otp_hash) {
 			const attempts = await recordOtpAttempt(sql, latest.id);
 			if (attempts >= MAX_OTP_ATTEMPTS) {
 				await invalidateOtp(sql, latest.id);
-				return html(tierPaymentConfirmPage(sessionUser, { expired: true }));
+				return redirect("/pricing/status");
 			}
 			return html(
-				tierPaymentConfirmPage(sessionUser, {
+				tierPaymentStatusPage(sessionUser, {
+					kind: "otp_sent",
+					tierName,
 					phone: latest.phone,
 					error: `Incorrect code. ${MAX_OTP_ATTEMPTS - attempts} attempt(s) left.`,
 				}),
 				400,
 			);
 		}
-
-		const tiers = await listTiers(sql);
-		const tierName = tiers.find((t) => t.code === latest.tier_code)?.name ?? latest.tier_code;
 
 		await markTierPaymentConfirmed(sql, latest.id);
 		await upgradeUserAfterVerification(
@@ -516,8 +567,23 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 		return redirect("/pricing/status");
 	}
 
-	// PesaPal IPN callback — server-to-server, no session. Matched by payment_ref (the
-	// merchant's own order_tracking_id, returned by PesaPal as the "OrderTrackingId" param).
+	// Where PesaPal sends the user after payment (redirect_mode PARENT_WINDOW, so this loads
+	// in the page that holds the iframe). Status is not trusted from the URL; we check it.
+	if (path === "/pricing/callback") {
+		const orderTrackingId = url.searchParams.get("OrderTrackingId");
+		if (orderTrackingId) {
+			try {
+				const payment = await findTierPaymentByRef(sql, orderTrackingId);
+				if (payment) await checkTierPayment(sql, env, payment);
+			} catch (err) {
+				console.error("pricing/callback error:", err);
+			}
+		}
+		return redirect("/pricing/status");
+	}
+
+	// PesaPal IPN, server-to-server, no session. Matched by payment_ref. PesaPal expects a
+	// 200 OK regardless of the outcome of our handling.
 	if (path === "/payments/pesapal-ipn") {
 		const orderTrackingId = url.searchParams.get("OrderTrackingId");
 		const notificationType = url.searchParams.get("OrderNotificationType");
@@ -530,40 +596,17 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 			console.error("pesapal-ipn error:", err);
 		}
 
-		// PesaPal expects 200 OK regardless of outcome.
 		if (notificationType) return new Response("OK", { status: 200 });
 		return redirect("/pricing/status");
 	}
 
-	// Manual "check status now" button on the awaiting-payment page, for when the IPN is slow
-	// or doesn't arrive. Queries PesaPal directly instead of waiting.
-	if (path === "/pricing/check" && method === "GET") {
-		const sessionUser = await currentUser(request, sql);
-		if (!sessionUser) return redirect("/login");
-
-		const latest = await findLatestTierPayment(sql, sessionUser.id);
-		if (latest && !latest.verified_at) {
-			try {
-				await checkTierPayment(sql, env, latest);
-			} catch (err) {
-				console.error("pricing/check error:", err);
-				const tiers = await listTiers(sql);
-				const tierName =
-					tiers.find((t) => t.code === latest.tier_code)?.name ?? latest.tier_code;
-				return html(
-					tierPaymentStatusPage(sessionUser, {
-						kind: "payment_failed",
-						tierName,
-						phone: latest.phone,
-						error: "Couldn't reach PesaPal just now. Try again in a moment.",
-					}),
-					502,
-				);
-			}
-		}
-
+	// Old "check status now" route, kept as a redirect so bookmarks and in-flight pages land
+	// on the single status screen.
+	if (path === "/pricing/confirm" && method === "GET") return redirect("/pricing/status");
+	if (path === "/pricing/check-status" || path === "/pricing/check") {
 		return redirect("/pricing/status");
 	}
+
 
 	// Old URL, kept as a redirect in case it's bookmarked anywhere.
 	if (path === "/verify") return redirect("/pricing");

@@ -220,8 +220,6 @@ export function pricingPage(
 			} else {
 				cta = `<form method="post" action="/pricing/start">
 <input type="hidden" name="tier" value="${esc(t.code)}">
-<label for="phone_${esc(t.code)}">Phone for payment & verification</label>
-<input id="phone_${esc(t.code)}" name="phone" type="tel" value="${esc(opts.defaultPhone ?? user.phone)}" required>
 <button type="submit">Get ${esc(t.name)} · UGX ${t.price_ugx.toLocaleString()}/${esc(t.billing_period)}</button>
 </form>`;
 			}
@@ -246,17 +244,18 @@ ${cards}`,
 }
 
 export type TierPaymentViewState =
-	| {
-			kind: "awaiting_payment";
-			tierName: string;
-			phone: string;
-			amountUgx: number;
-			redirectUrl: string;
-	  }
-	| { kind: "awaiting_otp"; tierName: string; phone: string }
-	| { kind: "done"; tierName: string; phoneVerified: boolean; phone: string }
-	| { kind: "payment_failed"; tierName: string; phone: string; error?: string };
+	| { kind: "paying"; tierName: string; amountUgx: number; redirectUrl: string }
+	| { kind: "otp"; tierName: string; phone: string; error?: string }
+	| { kind: "otp_sent"; tierName: string; phone: string; error?: string }
+	| { kind: "done"; tierName: string; phone: string }
+	| { kind: "failed"; tierName: string; error?: string };
 
+/**
+ * The single screen the user sits on for a paid tier. It moves through states in place:
+ * paying (PesaPal checkout in an iframe, polling for status) -> otp (confirm/edit number,
+ * send code) -> code entry -> done. Polling only reads state; the server decides every
+ * transition, and status always comes from GetTransactionStatus.
+ */
 export function tierPaymentStatusPage(
 	user: { phone: string },
 	state: TierPaymentViewState,
@@ -265,66 +264,85 @@ export function tierPaymentStatusPage(
 		return layout(
 			"Pricing",
 			`<h1>You're all set</h1>
-<div class="msg ok">You're now on ${esc(state.tierName)}.${state.phoneVerified ? ` ${esc(state.phone)} is verified.` : ""}</div>
+<div class="msg ok">You're now on ${esc(state.tierName)}. ${esc(state.phone)} is verified.</div>
 <p><a href="/add"><button>Manage listings</button></a> <a href="/pricing"><button class="secondary">Back to pricing</button></a></p>`,
 			user,
 		);
 	}
 
-	if (state.kind === "awaiting_payment") {
+	if (state.kind === "failed") {
 		return layout(
-			"Pricing · payment pending",
-			`<h1>Confirm the payment on your phone</h1>
-<p>We sent a mobile money prompt for <strong>UGX ${state.amountUgx.toLocaleString()}</strong> to <strong>${esc(state.phone)}</strong> for ${esc(state.tierName)}. Approve it on your phone to continue.</p>
-<p><a href="/pricing/check"><button>Check status now</button></a></p>
-${state.redirectUrl ? `<p class="hint">Didn't get a prompt? <a href="${esc(state.redirectUrl)}">Pay on PesaPal's page instead</a>.</p>` : ""}`,
-			user,
-		);
-	}
-
-	if (state.kind === "awaiting_otp") {
-		return layout(
-			"Pricing · enter code",
-			`<h1>Enter your verification code</h1>
-<p>We sent a code by SMS to <strong>${esc(state.phone)}</strong>. It's valid for 30 minutes.</p>
-<p><a href="/pricing/confirm"><button>Enter code</button></a></p>`,
-			user,
-		);
-	}
-
-	return layout(
-		"Pricing",
-		`<h1>Payment didn't go through</h1>
+			"Pricing",
+			`<h1>Payment didn't go through</h1>
 <div class="msg err">${esc(state.error ?? "The payment wasn't completed. You can try again.")}</div>
 <p><a href="/pricing"><button>Back to pricing</button></a></p>`,
+			user,
+		);
+	}
+
+	if (state.kind === "paying") {
+		return layout(
+			"Pricing · payment",
+			`<h1>Pay for ${esc(state.tierName)}</h1>
+<p>UGX ${state.amountUgx.toLocaleString()}. Choose your mobile money network below and approve the payment. This page will continue automatically when it's done.</p>
+<iframe id="pay-frame" src="${esc(state.redirectUrl)}" title="PesaPal payment" style="width:100%;height:560px;border:1px solid #ddd;border-radius:6px" allow="payment"></iframe>
+<p id="pay-status" class="hint">Waiting for payment…</p>
+<p class="hint">Trouble with the frame? <a href="${esc(state.redirectUrl)}" target="_top">Open the payment page</a>.</p>
+${pollScript("/pricing/check", "/pricing/status")}`,
+			user,
+		);
+	}
+
+	// otp and otp_sent share the verification form. Number is prefilled and editable.
+	const phone = state.kind === "otp" || state.kind === "otp_sent" ? state.phone : "";
+	const sent = state.kind === "otp_sent";
+	return layout(
+		"Pricing · verify number",
+		`<h1>Verify your business number</h1>
+<p>Payment received for ${esc(state.tierName)}. Confirm the number that should receive your verification code.</p>
+${state.kind === "otp" && state.error ? `<div class="msg err">${esc(state.error)}</div>` : ""}
+${sent ? `<div class="msg ok">We sent a 6-digit code by SMS to ${esc(phone)}. It's valid for 30 minutes.</div>` : ""}
+<form method="post" action="/pricing/send-code">
+<label for="phone">Verification number</label>
+<input id="phone" name="phone" type="tel" value="${esc(phone)}" required>
+<button type="submit" class="secondary">${sent ? "Send a new code" : "Send code"}</button>
+</form>
+${sent ? `<form method="post" action="/pricing/confirm" style="margin-top:16px">
+<label for="code">Code</label>
+<input id="code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+<button type="submit">Verify</button>
+</form>` : ""}`,
 		user,
 	);
 }
 
-export function tierPaymentConfirmPage(
-	user: { phone: string },
-	opts: { phone: string; error?: string } | { expired: true },
-): string {
-	if ("expired" in opts) {
-		return layout(
-			"Pricing · code expired",
-			`<h1>Code expired</h1>
-<div class="msg err">That code is no longer valid. Start again to get a new one.</div>
-<p><a href="/pricing"><button>Back to pricing</button></a></p>`,
-			user,
-		);
-	}
-
-	return layout(
-		"Pricing · enter code",
-		`<h1>Enter your verification code</h1>
-<p>Enter the 6-digit code we sent by SMS to <strong>${esc(opts.phone)}</strong>.</p>
-${opts.error ? `<div class="msg err">${esc(opts.error)}</div>` : ""}
-<form method="post" action="/pricing/confirm">
-<label for="code">Code</label>
-<input id="code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
-<button type="submit">Verify</button>
-</form>`,
-		user,
-	);
+/**
+ * Polls /pricing/check (JSON) every few seconds while paying. Stops after 10 minutes and
+ * offers a manual check. On `paid` it moves to the OTP step by navigating to /pricing/status.
+ */
+function pollScript(checkUrl: string, nextUrl: string): string {
+	return `<script>
+(function () {
+  var started = Date.now(), MAX_MS = 10 * 60 * 1000, statusEl = document.getElementById("pay-status");
+  function tick() {
+    if (Date.now() - started > MAX_MS) {
+      statusEl.textContent = "Still waiting. Refresh this page to check again.";
+      return;
+    }
+    fetch("${checkUrl}", { headers: { Accept: "application/json" }, credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j.state === "paid" || j.state === "otp" || j.state === "otp_sent" || j.state === "done") {
+          window.location.href = "${nextUrl}";
+        } else if (j.state === "failed") {
+          window.location.href = "${nextUrl}";
+        } else {
+          setTimeout(tick, 4000);
+        }
+      })
+      .catch(function () { setTimeout(tick, 6000); });
+  }
+  setTimeout(tick, 4000);
+})();
+</script>`;
 }

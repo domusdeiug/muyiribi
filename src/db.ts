@@ -265,9 +265,10 @@ export interface TierPayment {
 	id: number;
 	user_id: number;
 	tier_code: string;
-	phone: string;
+	phone: string | null; // null until the user submits the OTP-step number
 	amount_ugx: number;
 	payment_ref: string | null;
+	redirect_url: string | null; // PesaPal hosted checkout URL, loaded in the iframe
 	payment_status: "pending" | "paid" | "failed";
 	otp_hash: string | null;
 	otp_expires_at: string | null;
@@ -280,19 +281,36 @@ export async function createTierPayment(
 	sql: Sql,
 	userId: number,
 	tierCode: string,
-	phone: string,
 	amountUgx: number,
 ): Promise<number> {
 	const rows = rowsOf(
 		await sql`
-		INSERT INTO tier_payments (user_id, tier_code, phone, amount_ugx)
-		VALUES (${userId}, ${tierCode}, ${phone}, ${amountUgx}) RETURNING id`,
+		INSERT INTO tier_payments (user_id, tier_code, amount_ugx)
+		VALUES (${userId}, ${tierCode}, ${amountUgx}) RETURNING id`,
 	);
 	return Number(rows[0].id);
 }
 
-export async function setTierPaymentRef(sql: Sql, id: number, ref: string) {
-	await sql`UPDATE tier_payments SET payment_ref = ${ref} WHERE id = ${id}`;
+/** Records the verification number the user confirmed on the OTP step, and its code hash. */
+export async function setTierPaymentOtp(
+	sql: Sql,
+	id: number,
+	phone: string,
+	otpHash: string,
+	expiresAt: Date,
+) {
+	await sql`UPDATE tier_payments SET
+		phone = ${phone}, otp_hash = ${otpHash}, otp_expires_at = ${expiresAt.toISOString()}, otp_attempts = 0
+		WHERE id = ${id}`;
+}
+
+export async function setTierPaymentRef(
+	sql: Sql,
+	id: number,
+	ref: string,
+	redirectUrl: string,
+) {
+	await sql`UPDATE tier_payments SET payment_ref = ${ref}, redirect_url = ${redirectUrl} WHERE id = ${id}`;
 }
 
 export async function findTierPaymentByRef(sql: Sql, ref: string): Promise<TierPayment | null> {
@@ -309,15 +327,8 @@ export async function findLatestTierPayment(sql: Sql, userId: number): Promise<T
 	return (rows[0] as TierPayment) ?? null;
 }
 
-export async function markTierPaymentPaidWithOtp(
-	sql: Sql,
-	id: number,
-	otpHash: string,
-	expiresAt: Date,
-) {
-	await sql`UPDATE tier_payments SET
-		payment_status = 'paid', otp_hash = ${otpHash}, otp_expires_at = ${expiresAt.toISOString()}, otp_attempts = 0
-		WHERE id = ${id}`;
+export async function markTierPaymentPaid(sql: Sql, id: number) {
+	await sql`UPDATE tier_payments SET payment_status = 'paid' WHERE id = ${id}`;
 }
 
 export async function markTierPaymentFailed(sql: Sql, id: number) {

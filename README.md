@@ -31,6 +31,10 @@ Your MCP URL will be `https://<worker-name>.<subdomain>.workers.dev/mcp`.
 - `/pricing` shows all tiers and sells them via PesaPal. Every paid tier (Basic UGX 5,000/yr,
   Pro UGX 12,000/yr, Premium UGX 25,000/yr) requires business contact phone verification by SMS
   OTP (sent via UgaText) before the tier is granted. See `migrations/002_verification.sql` and
-  `migrations/003_tier_names_and_pricing.sql`.
+  `migrations/003_tier_names_and_pricing.sql`, and `migrations/004_payment_phone_optional.sql`.
+- Paid-tier flow is one page. "Get <tier>" creates a PesaPal order and shows its checkout in an
+  iframe on `/pricing/status`. The page polls `/pricing/check` until payment completes, then
+  asks for the verification number (prefilled, editable) and sends the SMS code. Status is only
+  trusted from PesaPal's GetTransactionStatus, never from the callback URL.
 - Required secrets, in addition to `DATABASE_URL`: `PESAPAL_CONSUMER_KEY`, `PESAPAL_CONSUMER_SECRET`,
   `PESAPAL_ENV` ("live" or omit for sandbox), `UGATEXT_CLIENT_ID`, `UGATEXT_CLIENT_SECRET`.
