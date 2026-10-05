@@ -14,8 +14,14 @@ function fromHex(hex: string): Uint8Array {
 }
 
 async function pbkdf2(password: string, salt: Uint8Array): Promise<ArrayBuffer> {
-	const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
-	return crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: ITERATIONS, hash: "SHA-256" }, key, 256);
+	const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, [
+		"deriveBits",
+	]);
+	return crypto.subtle.deriveBits(
+		{ name: "PBKDF2", salt, iterations: ITERATIONS, hash: "SHA-256" },
+		key,
+		256,
+	);
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -45,6 +51,15 @@ export async function hashToken(token: string): Promise<string> {
 }
 
 export const SESSION_TTL_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
+
+export const OTP_TTL_MS = 30 * 60 * 1000; // 30 minutes
+export const MAX_OTP_ATTEMPTS = 3;
+
+/** Six-digit numeric OTP, e.g. "042913". Hash it with hashToken() before storing. */
+export function generateOtp(): string {
+	const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000;
+	return n.toString().padStart(6, "0");
+}
 
 /** Normalise Ugandan phone numbers to +256XXXXXXXXX. Returns null if invalid. */
 export function normalisePhone(input: string): string | null {

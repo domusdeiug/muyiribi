@@ -7,6 +7,9 @@ import {
 	newSessionToken,
 	hashToken,
 	normalisePhone,
+	generateOtp,
+	OTP_TTL_MS,
+	MAX_OTP_ATTEMPTS,
 	SESSION_TTL_MS,
 } from "./auth";
 import {
@@ -24,9 +27,32 @@ import {
 	effectiveTierLimit,
 	countOwnListings,
 	insertListing,
+	getUserProfile,
+	listTiers,
+	createTierPayment,
+	setTierPaymentRef,
+	findTierPaymentByRef,
+	findLatestTierPayment,
+	markTierPaymentPaidWithOtp,
+	markTierPaymentFailed,
+	recordOtpAttempt,
+	invalidateOtp,
+	markTierPaymentConfirmed,
+	upgradeUserAfterVerification,
 	type Sql,
+	type TierPayment,
 } from "./db";
-import { landingPage, authPage, addListingPage, DESCRIPTION_MIN } from "./pages";
+import {
+	landingPage,
+	authPage,
+	addListingPage,
+	pricingPage,
+	tierPaymentStatusPage,
+	tierPaymentConfirmPage,
+	DESCRIPTION_MIN,
+} from "./pages";
+import { submitVerificationOrder, getPesapalTransactionStatus, isCompletedStatus } from "./pesapal";
+import { sendSms } from "./ugatext";
 
 const MAX_FAILED_LOGINS = 5;
 const LOCK_MINUTES = 15;
@@ -54,7 +80,13 @@ function createServer(sql: Sql) {
 						"Exact category name from list_categories. Use it when the request fits a category. Optional.",
 					),
 				district: z.string().optional().describe("District name, e.g. Kampala"),
-				limit: z.number().int().min(1).max(5).default(5).describe("Number of results, 1 to 5"),
+				limit: z
+					.number()
+					.int()
+					.min(1)
+					.max(5)
+					.default(5)
+					.describe("Number of results, 1 to 5"),
 			}),
 		},
 		async ({ keyword, category, district, limit }) => {
@@ -128,6 +160,33 @@ async function startSession(sql: Sql, userId: number): Promise<Response> {
 	});
 }
 
+// ---------- tier payment processing (shared by IPN callback and manual check) ----------
+
+/**
+ * Queries PesaPal for a pending tier payment's status and, if it has resolved, updates the
+ * DB. Every tier requires phone verification, so a completed payment always triggers an SMS
+ * OTP and waits for /pricing/confirm. No-ops if not pending or not found.
+ */
+async function checkTierPayment(sql: Sql, env: Env, payment: TierPayment) {
+	if (payment.payment_status !== "pending" || !payment.payment_ref) return;
+
+	const txStatus = await getPesapalTransactionStatus(env, payment.payment_ref);
+	if (isCompletedStatus(txStatus.status)) {
+		const otp = generateOtp();
+		const otpHash = await hashToken(otp);
+		const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+		await markTierPaymentPaidWithOtp(sql, payment.id, otpHash, expiresAt);
+		await sendSms(
+			env,
+			payment.phone,
+			`Your Muyiribi verification code is ${otp}. It expires in 30 minutes.`,
+		);
+	} else if (txStatus.status === "FAILED" || txStatus.status === "INVALID") {
+		await markTierPaymentFailed(sql, payment.id);
+	}
+	// Any other status (pending, etc.): leave as-is.
+}
+
 // ---------- web routes ----------
 
 async function handleWeb(request: Request, env: Env): Promise<Response> {
@@ -149,10 +208,16 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 		const phone = normalisePhone(f.phone ?? "");
 		if (!phone) return html(authPage("signup", "Enter a valid Uganda phone number."), 400);
 		if ((f.password ?? "").length < MIN_PASSWORD)
-			return html(authPage("signup", `Password must be at least ${MIN_PASSWORD} characters.`), 400);
+			return html(
+				authPage("signup", `Password must be at least ${MIN_PASSWORD} characters.`),
+				400,
+			);
 
 		if (await findUserByPhone(sql, phone))
-			return html(authPage("signup", "An account with this number already exists. Log in instead."), 409);
+			return html(
+				authPage("signup", "An account with this number already exists. Log in instead."),
+				409,
+			);
 
 		const userId = await createUser(sql, phone, await hashPassword(f.password));
 		return startSession(sql, userId);
@@ -172,7 +237,10 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 		if (!user) return html(authPage("login", generic), 401);
 
 		if (user.locked_until && new Date(user.locked_until) > new Date()) {
-			return html(authPage("login", "Too many failed attempts. Try again in 15 minutes."), 429);
+			return html(
+				authPage("login", "Too many failed attempts. Try again in 15 minutes."),
+				429,
+			);
 		}
 
 		const ok = await verifyPassword(f.password ?? "", user.password_hash);
@@ -223,14 +291,16 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 		const fail = (error: string) => html(addListingPage(user, categories, { error }), 400);
 
 		if (!f.business_name) return fail("Business name is required.");
-		if (!f.category || !categories.includes(f.category)) return fail("Choose a valid category.");
+		if (!f.category || !categories.includes(f.category))
+			return fail("Choose a valid category.");
 		if ((f.description ?? "").length < DESCRIPTION_MIN)
 			return fail(`Description must be at least ${DESCRIPTION_MIN} characters.`);
 		if (!f.district) return fail("District is required.");
 		const phone = normalisePhone(f.phone ?? "");
 		if (!phone) return fail("Enter a valid contact phone number.");
 		const whatsapp = f.whatsapp ? normalisePhone(f.whatsapp) : null;
-		if (f.whatsapp && !whatsapp) return fail("Enter a valid WhatsApp number or leave it blank.");
+		if (f.whatsapp && !whatsapp)
+			return fail("Enter a valid WhatsApp number or leave it blank.");
 
 		await insertListing(sql, user.id, {
 			business_name: f.business_name,
@@ -247,6 +317,256 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 
 		return redirect("/add?saved=1");
 	}
+
+	// ---------- pricing & tier payments ----------
+
+	if (path === "/pricing" && method === "GET") {
+		const sessionUser = await currentUser(request, sql);
+		const tiers = await listTiers(sql);
+
+		if (!sessionUser) return html(pricingPage(null, tiers));
+
+		const profile = await getUserProfile(sql, sessionUser.id);
+		if (!profile) return redirect("/login");
+
+		// If there's a payment in flight for this user, send them to its status page
+		// instead of letting them start another one.
+		const latest = await findLatestTierPayment(sql, sessionUser.id);
+		if (latest && latest.payment_status !== "failed" && !latest.verified_at) {
+			return redirect("/pricing/status");
+		}
+
+		return html(
+			pricingPage(sessionUser, tiers, {
+				currentTierCode: profile.tier_code,
+				phoneVerified: profile.phone_verified,
+				defaultPhone: profile.business_contact_phone ?? profile.phone,
+			}),
+		);
+	}
+
+	if (path === "/pricing/start" && method === "POST") {
+		const sessionUser = await currentUser(request, sql);
+		if (!sessionUser) return redirect("/login");
+
+		const f = await readForm(request);
+		const tiers = await listTiers(sql);
+		const tier = tiers.find((t) => t.code === f.tier);
+		if (!tier || tier.price_ugx <= 0) return redirect("/pricing");
+
+		const phone = normalisePhone(f.phone ?? "");
+		if (!phone) {
+			return html(
+				pricingPage(sessionUser, tiers, { error: "Enter a valid Uganda phone number." }),
+				400,
+			);
+		}
+
+		const id = await createTierPayment(sql, sessionUser.id, tier.code, phone, tier.price_ugx);
+
+		try {
+			const origin = new URL(request.url).origin;
+			const order = await submitVerificationOrder(env, origin, {
+				merchantRef: `tier-${id}`,
+				amountUgx: tier.price_ugx,
+				phone,
+			});
+			await setTierPaymentRef(sql, id, order.order_tracking_id);
+			return html(
+				tierPaymentStatusPage(sessionUser, {
+					kind: "awaiting_payment",
+					tierName: tier.name,
+					phone,
+					amountUgx: tier.price_ugx,
+					redirectUrl: order.redirect_url,
+				}),
+			);
+		} catch (err) {
+			await markTierPaymentFailed(sql, id);
+			const message = err instanceof Error ? err.message : "Could not start the payment.";
+			return html(
+				tierPaymentStatusPage(sessionUser, {
+					kind: "payment_failed",
+					tierName: tier.name,
+					phone,
+					error: message,
+				}),
+				502,
+			);
+		}
+	}
+
+	if (path === "/pricing/status" && method === "GET") {
+		const sessionUser = await currentUser(request, sql);
+		if (!sessionUser) return redirect("/login");
+
+		const latest = await findLatestTierPayment(sql, sessionUser.id);
+		if (!latest) return redirect("/pricing");
+		const tiers = await listTiers(sql);
+		const tierName = tiers.find((t) => t.code === latest.tier_code)?.name ?? latest.tier_code;
+
+		if (latest.verified_at) {
+			const profile = await getUserProfile(sql, sessionUser.id);
+			return html(
+				tierPaymentStatusPage(sessionUser, {
+					kind: "done",
+					tierName,
+					phone: latest.phone,
+					phoneVerified: profile?.phone_verified ?? false,
+				}),
+			);
+		}
+		if (latest.payment_status === "failed") {
+			return html(
+				tierPaymentStatusPage(sessionUser, {
+					kind: "payment_failed",
+					tierName,
+					phone: latest.phone,
+				}),
+			);
+		}
+		if (latest.payment_status === "paid") {
+			return html(
+				tierPaymentStatusPage(sessionUser, {
+					kind: "awaiting_otp",
+					tierName,
+					phone: latest.phone,
+				}),
+			);
+		}
+		return html(
+			tierPaymentStatusPage(sessionUser, {
+				kind: "awaiting_payment",
+				tierName,
+				phone: latest.phone,
+				amountUgx: latest.amount_ugx,
+				redirectUrl: "",
+			}),
+		);
+	}
+
+	if (path === "/pricing/confirm" && method === "GET") {
+		const sessionUser = await currentUser(request, sql);
+		if (!sessionUser) return redirect("/login");
+		const latest = await findLatestTierPayment(sql, sessionUser.id);
+		if (!latest || latest.verified_at || latest.payment_status !== "paid")
+			return redirect("/pricing");
+		if (
+			!latest.otp_hash ||
+			!latest.otp_expires_at ||
+			new Date(latest.otp_expires_at) <= new Date()
+		) {
+			return html(tierPaymentConfirmPage(sessionUser, { expired: true }));
+		}
+		return html(tierPaymentConfirmPage(sessionUser, { phone: latest.phone }));
+	}
+
+	if (path === "/pricing/confirm" && method === "POST") {
+		const sessionUser = await currentUser(request, sql);
+		if (!sessionUser) return redirect("/login");
+		const latest = await findLatestTierPayment(sql, sessionUser.id);
+		if (!latest || latest.verified_at || latest.payment_status !== "paid")
+			return redirect("/pricing");
+
+		if (
+			!latest.otp_hash ||
+			!latest.otp_expires_at ||
+			new Date(latest.otp_expires_at) <= new Date()
+		) {
+			return html(tierPaymentConfirmPage(sessionUser, { expired: true }));
+		}
+
+		const f = await readForm(request);
+		const code = (f.code ?? "").trim();
+		const codeHash = await hashToken(code);
+
+		if (codeHash !== latest.otp_hash) {
+			const attempts = await recordOtpAttempt(sql, latest.id);
+			if (attempts >= MAX_OTP_ATTEMPTS) {
+				await invalidateOtp(sql, latest.id);
+				return html(tierPaymentConfirmPage(sessionUser, { expired: true }));
+			}
+			return html(
+				tierPaymentConfirmPage(sessionUser, {
+					phone: latest.phone,
+					error: `Incorrect code. ${MAX_OTP_ATTEMPTS - attempts} attempt(s) left.`,
+				}),
+				400,
+			);
+		}
+
+		const tiers = await listTiers(sql);
+		const tierName = tiers.find((t) => t.code === latest.tier_code)?.name ?? latest.tier_code;
+
+		await markTierPaymentConfirmed(sql, latest.id);
+		await upgradeUserAfterVerification(
+			sql,
+			sessionUser.id,
+			latest.tier_code,
+			latest.phone,
+			latest.payment_ref,
+			latest.amount_ugx,
+		);
+		await sendSms(
+			env,
+			latest.phone,
+			`Your Muyiribi business contact is verified. You're now on the ${tierName} tier for one year. Thank you!`,
+		);
+
+		return redirect("/pricing/status");
+	}
+
+	// PesaPal IPN callback — server-to-server, no session. Matched by payment_ref (the
+	// merchant's own order_tracking_id, returned by PesaPal as the "OrderTrackingId" param).
+	if (path === "/payments/pesapal-ipn") {
+		const orderTrackingId = url.searchParams.get("OrderTrackingId");
+		const notificationType = url.searchParams.get("OrderNotificationType");
+		if (!orderTrackingId) return new Response("OK", { status: 200 });
+
+		try {
+			const payment = await findTierPaymentByRef(sql, orderTrackingId);
+			if (payment) await checkTierPayment(sql, env, payment);
+		} catch (err) {
+			console.error("pesapal-ipn error:", err);
+		}
+
+		// PesaPal expects 200 OK regardless of outcome.
+		if (notificationType) return new Response("OK", { status: 200 });
+		return redirect("/pricing/status");
+	}
+
+	// Manual "check status now" button on the awaiting-payment page, for when the IPN is slow
+	// or doesn't arrive. Queries PesaPal directly instead of waiting.
+	if (path === "/pricing/check" && method === "GET") {
+		const sessionUser = await currentUser(request, sql);
+		if (!sessionUser) return redirect("/login");
+
+		const latest = await findLatestTierPayment(sql, sessionUser.id);
+		if (latest && !latest.verified_at) {
+			try {
+				await checkTierPayment(sql, env, latest);
+			} catch (err) {
+				console.error("pricing/check error:", err);
+				const tiers = await listTiers(sql);
+				const tierName =
+					tiers.find((t) => t.code === latest.tier_code)?.name ?? latest.tier_code;
+				return html(
+					tierPaymentStatusPage(sessionUser, {
+						kind: "payment_failed",
+						tierName,
+						phone: latest.phone,
+						error: "Couldn't reach PesaPal just now. Try again in a moment.",
+					}),
+					502,
+				);
+			}
+		}
+
+		return redirect("/pricing/status");
+	}
+
+	// Old URL, kept as a redirect in case it's bookmarked anywhere.
+	if (path === "/verify") return redirect("/pricing");
 
 	return html("<h1>Not found</h1>", 404);
 }

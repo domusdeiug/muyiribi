@@ -24,8 +24,13 @@ Your MCP URL will be `https://<worker-name>.<subdomain>.workers.dev/mcp`.
 ## Notes
 
 - Passwords are hashed with PBKDF2 (Web Crypto). Accounts lock for 15 minutes after 5 failed logins.
-- Creation limit (how many listings an account can create): Free 3, Blue 5, Green 7, Black unlimited.
-- Search limit (how many of an account's listings can appear in search): Free 1, Blue 3, Green 5, Black unlimited. Newest first.
+- Creation limit (how many listings an account can create): Free 3, Basic 5, Pro 7, Premium unlimited.
+- Search limit (how many of an account's listings can appear in search): Free 1, Basic 3, Pro 5, Premium unlimited. Newest first.
 - Results are ordered by tier, highest first.
 - Paid tiers only count while an active subscription exists. No flow creates subscriptions yet; payments come later.
-- Phone verification (OTP via TextBee) is not implemented yet. `users.phone_verified` is ready for it.
+- `/pricing` shows all tiers and sells them via PesaPal. Every paid tier (Basic UGX 5,000/yr,
+  Pro UGX 12,000/yr, Premium UGX 25,000/yr) requires business contact phone verification by SMS
+  OTP (sent via UgaText) before the tier is granted. See `migrations/002_verification.sql` and
+  `migrations/003_tier_names_and_pricing.sql`.
+- Required secrets, in addition to `DATABASE_URL`: `PESAPAL_CONSUMER_KEY`, `PESAPAL_CONSUMER_SECRET`,
+  `PESAPAL_ENV` ("live" or omit for sandbox), `UGATEXT_CLIENT_ID`, `UGATEXT_CLIENT_SECRET`.

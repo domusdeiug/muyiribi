@@ -1,3 +1,5 @@
+import type { TierInfo } from "./db";
+
 export function esc(s: unknown): string {
 	return String(s ?? "")
 		.replace(/&/g, "&amp;")
@@ -26,7 +28,7 @@ button.secondary{background:#eee;color:#1a1a1a}
 
 export function layout(title: string, body: string, user?: { phone: string } | null): string {
 	const nav = user
-		? `<a href="/add">Add listing</a><a href="/logout">Log out (${esc(user.phone)})</a>`
+		? `<a href="/add">Add listing</a><a href="/pricing">Pricing</a><a href="/logout">Log out (${esc(user.phone)})</a>`
 		: `<a href="/login">Log in</a><a href="/signup">Sign up</a>`;
 	return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -50,12 +52,16 @@ document.querySelectorAll('[data-toggle-pw]').forEach(function(btn){
 }
 
 export function landingPage(user: { phone: string } | null): string {
-	return layout("Home", `
+	return layout(
+		"Home",
+		`
 <h1>Find and list businesses in Uganda</h1>
 <p>Muyiribi is a directory of businesses and services across Uganda. Anyone can search it, and AI assistants can use it too.</p>
 <p>Create a free account with your phone number and password, then list your business. Free accounts can list one business. Paid tiers let you list more and appear higher in results.</p>
 ${user ? `<p><a href="/add"><button>Add a listing</button></a></p>` : `<p><a href="/signup"><button>Sign up</button></a> <a href="/login"><button class="secondary">Log in</button></a></p>`}
-`, user);
+`,
+		user,
+	);
 }
 
 function passwordField(id: string, label: string, autocomplete: string): string {
@@ -66,7 +72,9 @@ function passwordField(id: string, label: string, autocomplete: string): string 
 
 export function authPage(mode: "signup" | "login", error?: string): string {
 	const isSignup = mode === "signup";
-	return layout(isSignup ? "Sign up" : "Log in", `
+	return layout(
+		isSignup ? "Sign up" : "Log in",
+		`
 <h1>${isSignup ? "Create an account" : "Log in"}</h1>
 ${error ? `<div class="msg err">${esc(error)}</div>` : ""}
 <form method="post" action="/${mode}">
@@ -77,10 +85,13 @@ ${passwordField("password", "Password", isSignup ? "new-password" : "current-pas
 ${isSignup ? `<div class="hint">At least 8 characters.</div>` : ""}
 <button type="submit">${isSignup ? "Sign up" : "Log in"}</button>
 </form>
-${isSignup
-	? `<p>Already have an account? <a href="/login">Log in</a></p>`
-	: `<p>New here? <a href="/signup">Sign up</a></p>`}
-`);
+${
+	isSignup
+		? `<p>Already have an account? <a href="/login">Log in</a></p>`
+		: `<p>New here? <a href="/signup">Sign up</a></p>`
+}
+`,
+	);
 }
 
 export const DESCRIPTION_MIN = 40;
@@ -88,12 +99,22 @@ export const DESCRIPTION_MIN = 40;
 export function addListingPage(
 	user: { phone: string },
 	categories: string[],
-	opts: { error?: string; success?: boolean; atLimit?: boolean; count?: number; limit?: number | null },
+	opts: {
+		error?: string;
+		success?: boolean;
+		atLimit?: boolean;
+		count?: number;
+		limit?: number | null;
+	},
 ): string {
 	if (opts.atLimit) {
-		return layout("Listing limit reached", `
+		return layout(
+			"Listing limit reached",
+			`
 <h1>Listing limit reached</h1>
-<div class="msg err">Your plan allows ${opts.limit} listing${opts.limit === 1 ? "" : "s"}. You have ${opts.count}. Upgrade your plan to add more.</div>`, user);
+<div class="msg err">Your plan allows ${opts.limit} listing${opts.limit === 1 ? "" : "s"}. You have ${opts.count}. Upgrade your plan to add more.</div>`,
+			user,
+		);
 	}
 
 	const body = `
@@ -148,4 +169,162 @@ ${opts.error ? `<div class="msg err">${esc(opts.error)}</div>` : ""}
 })();
 </script>`;
 	return layout("Add listing", body, user);
+}
+
+// ---------- pricing & tier payments ----------
+
+function featureLines(t: TierInfo): string[] {
+	const lines: string[] = [];
+	lines.push(
+		t.max_listings === null
+			? "Unlimited listings"
+			: `Create up to ${t.max_listings} listing${t.max_listings === 1 ? "" : "s"}`,
+	);
+	lines.push(
+		t.show_limit === null
+			? "All your listings appear in search"
+			: `Up to ${t.show_limit} listing${t.show_limit === 1 ? "" : "s"} shown in search`,
+	);
+	if (t.rank > 0) {
+		lines.push("Verifies your business contact number (SMS code)");
+		lines.push("Higher search ranking than lower tiers");
+	}
+	return lines;
+}
+
+export function pricingPage(
+	user: { phone: string } | null,
+	tiers: TierInfo[],
+	opts: {
+		currentTierCode?: string;
+		phoneVerified?: boolean;
+		defaultPhone?: string;
+		error?: string;
+	} = {},
+): string {
+	const cards = tiers
+		.map((t) => {
+			const isFree = t.price_ugx === 0;
+			const isCurrent = opts.currentTierCode === t.code;
+			const features = featureLines(t)
+				.map((f) => `<li>${esc(f)}</li>`)
+				.join("");
+
+			let cta: string;
+			if (!user) {
+				cta = isFree ? "" : `<a href="/signup"><button>Sign up to subscribe</button></a>`;
+			} else if (isFree) {
+				cta = isCurrent ? `<p class="hint">Your current plan</p>` : "";
+			} else if (isCurrent) {
+				cta = `<p class="hint">Your current plan${opts.phoneVerified ? " · phone verified" : ""}</p>`;
+			} else {
+				cta = `<form method="post" action="/pricing/start">
+<input type="hidden" name="tier" value="${esc(t.code)}">
+<label for="phone_${esc(t.code)}">Phone for payment & verification</label>
+<input id="phone_${esc(t.code)}" name="phone" type="tel" value="${esc(opts.defaultPhone ?? user.phone)}" required>
+<button type="submit">Get ${esc(t.name)} · UGX ${t.price_ugx.toLocaleString()}/${esc(t.billing_period)}</button>
+</form>`;
+			}
+
+			return `<div class="msg" style="border:1px solid #ddd">
+<h2 style="margin-top:0">${esc(t.name)}${isCurrent ? " ✓" : ""}</h2>
+<p><strong>${isFree ? "Free" : `UGX ${t.price_ugx.toLocaleString()} / ${esc(t.billing_period)}`}</strong></p>
+<ul>${features}</ul>
+${cta}
+</div>`;
+		})
+		.join("");
+
+	return layout(
+		"Pricing",
+		`<h1>Pricing</h1>
+<p>Paid tiers let you list more businesses, rank higher in search, and verify your business contact number by SMS.</p>
+${opts.error ? `<div class="msg err">${esc(opts.error)}</div>` : ""}
+${cards}`,
+		user,
+	);
+}
+
+export type TierPaymentViewState =
+	| {
+			kind: "awaiting_payment";
+			tierName: string;
+			phone: string;
+			amountUgx: number;
+			redirectUrl: string;
+	  }
+	| { kind: "awaiting_otp"; tierName: string; phone: string }
+	| { kind: "done"; tierName: string; phoneVerified: boolean; phone: string }
+	| { kind: "payment_failed"; tierName: string; phone: string; error?: string };
+
+export function tierPaymentStatusPage(
+	user: { phone: string },
+	state: TierPaymentViewState,
+): string {
+	if (state.kind === "done") {
+		return layout(
+			"Pricing",
+			`<h1>You're all set</h1>
+<div class="msg ok">You're now on ${esc(state.tierName)}.${state.phoneVerified ? ` ${esc(state.phone)} is verified.` : ""}</div>
+<p><a href="/add"><button>Manage listings</button></a> <a href="/pricing"><button class="secondary">Back to pricing</button></a></p>`,
+			user,
+		);
+	}
+
+	if (state.kind === "awaiting_payment") {
+		return layout(
+			"Pricing · payment pending",
+			`<h1>Confirm the payment on your phone</h1>
+<p>We sent a mobile money prompt for <strong>UGX ${state.amountUgx.toLocaleString()}</strong> to <strong>${esc(state.phone)}</strong> for ${esc(state.tierName)}. Approve it on your phone to continue.</p>
+<p><a href="/pricing/check"><button>Check status now</button></a></p>
+${state.redirectUrl ? `<p class="hint">Didn't get a prompt? <a href="${esc(state.redirectUrl)}">Pay on PesaPal's page instead</a>.</p>` : ""}`,
+			user,
+		);
+	}
+
+	if (state.kind === "awaiting_otp") {
+		return layout(
+			"Pricing · enter code",
+			`<h1>Enter your verification code</h1>
+<p>We sent a code by SMS to <strong>${esc(state.phone)}</strong>. It's valid for 30 minutes.</p>
+<p><a href="/pricing/confirm"><button>Enter code</button></a></p>`,
+			user,
+		);
+	}
+
+	return layout(
+		"Pricing",
+		`<h1>Payment didn't go through</h1>
+<div class="msg err">${esc(state.error ?? "The payment wasn't completed. You can try again.")}</div>
+<p><a href="/pricing"><button>Back to pricing</button></a></p>`,
+		user,
+	);
+}
+
+export function tierPaymentConfirmPage(
+	user: { phone: string },
+	opts: { phone: string; error?: string } | { expired: true },
+): string {
+	if ("expired" in opts) {
+		return layout(
+			"Pricing · code expired",
+			`<h1>Code expired</h1>
+<div class="msg err">That code is no longer valid. Start again to get a new one.</div>
+<p><a href="/pricing"><button>Back to pricing</button></a></p>`,
+			user,
+		);
+	}
+
+	return layout(
+		"Pricing · enter code",
+		`<h1>Enter your verification code</h1>
+<p>Enter the 6-digit code we sent by SMS to <strong>${esc(opts.phone)}</strong>.</p>
+${opts.error ? `<div class="msg err">${esc(opts.error)}</div>` : ""}
+<form method="post" action="/pricing/confirm">
+<label for="code">Code</label>
+<input id="code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+<button type="submit">Verify</button>
+</form>`,
+		user,
+	);
 }
