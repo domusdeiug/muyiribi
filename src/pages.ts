@@ -74,7 +74,7 @@ export function termsPage(): string {
 		`
 <h1>Terms of Service</h1>
 <p><em>Last updated: ${new Date().toISOString().slice(0, 10)}</em></p>
-<p>Muyiribi ("we", "us") operates a public directory of businesses and service providers in Uganda. By using this site, the API, or the MCP server, you agree to the following:</p>
+<p>Domus Dei Uganda operates a public directory of businesses and service providers in Uganda (Muyiribi/UG-Online). By using this site, the API, or the MCP server, you agree to the following:</p>
 <h2>Listings</h2>
 <p>Anyone may search the directory. Business owners may create an account and submit a listing. You confirm that information you submit about a business is accurate and that you are authorised to list it. We may remove any listing that is false, abusive, or violates these terms.</p>
 <h2>Paid tiers</h2>
@@ -103,6 +103,7 @@ export function privacyPage(): string {
 <p>To operate the directory: authenticate you, display your listing, rank listings by tier, and process payments. We do not sell personal data to third parties.</p>
 <h2>AI assistants</h2>
 <p>Listing data (business name, category, district, description, and the contact details you chose to make public) is retrievable through our public search API and MCP server, which AI assistants such as Claude and ChatGPT may query on behalf of their users. Only data you submitted as part of a public listing is exposed this way — account passwords and private payment details are never exposed through these interfaces.</p>
+<p>We also store the search keywords provided by the ai assistants to better know which businesses are commonly sought.</p>
 <h2>Retention</h2>
 <p>We keep account and listing data for as long as your account is active. You can request deletion — see <a href="/support">support</a>.</p>
 <h2>Contact</h2>
