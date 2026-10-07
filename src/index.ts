@@ -42,6 +42,7 @@ import {
 	upgradeUserAfterVerification,
 	type Sql,
 	type TierPayment,
+	type Listing,
 } from "./db";
 import {
 	landingPage,
@@ -123,6 +124,29 @@ const BUSINESS_WIDGET_HTML = /* html */ `
 </script>
 `;
 
+// Whitelists exactly the fields a client should see, regardless of what the
+// SQL query's `l.*` happens to include (e.g. owner_id, search_vector, status,
+// created_at, owner_seq are never returned to a caller). `id` is coerced to a
+// string everywhere so search_businesses and get_business agree on type.
+function toPublicListing(row: Listing) {
+	return {
+		id: String(row.id),
+		business_name: row.business_name ?? null,
+		owner_name: row.owner_name ?? null,
+		category: row.category ?? null,
+		description: row.description ?? null,
+		district: row.district ?? null,
+		location: row.location ?? null,
+		phone: row.phone ?? null,
+		whatsapp: row.whatsapp ?? null,
+		email: row.email ?? null,
+		website: row.website ?? null,
+		tier_code: row.tier_code ?? null,
+		tier_rank: row.tier_rank ?? null,
+		...(typeof row.relevance === "number" ? { relevance: row.relevance } : {}),
+	};
+}
+
 function createServer(sql: Sql) {
 	const server = new McpServer({ name: "Muyiribi", version: "1.0.0" });
 
@@ -173,10 +197,18 @@ function createServer(sql: Sql) {
 					.default(5)
 					.describe("Number of results, 1 to 5"),
 			}),
+			annotations: {
+				title: "Search businesses",
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: true,
+			},
 			_meta: businessWidgetMeta,
 		},
 		async ({ keyword, category, district, limit }) => {
-			const rows = await searchListings(sql, { keyword, category, district, limit });
+			const rows = (await searchListings(sql, { keyword, category, district, limit })).map(
+				toPublicListing,
+			);
 			return {
 				content: [{ type: "text", text: JSON.stringify(rows, null, 2) }],
 				structuredContent: { results: rows },
@@ -187,18 +219,50 @@ function createServer(sql: Sql) {
 
 	server.registerTool(
 		"get_business",
-		{ inputSchema: z.object({ id: z.number().int().describe("Listing id") }) },
+		{
+			description:
+				"Fetch full public details for one business listing by id, including contact info (phone, WhatsApp, email, website). Use the id returned by search_businesses.",
+			inputSchema: z.object({
+				id: z
+					.union([z.string(), z.number()])
+					.describe("Listing id, as returned by search_businesses (accepts string or number)"),
+			}),
+			annotations: {
+				title: "Get business details",
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: true,
+			},
+		},
 		async ({ id }) => {
-			const row = await getListing(sql, id);
-			const text = row ? JSON.stringify(row, null, 2) : "Not found";
+			const numericId = Number(id);
+			if (!Number.isInteger(numericId)) {
+				return { content: [{ type: "text", text: "Invalid id" }], isError: true };
+			}
+			const row = await getListing(sql, numericId);
+			const text = row ? JSON.stringify(toPublicListing(row), null, 2) : "Not found";
 			return { content: [{ type: "text", text }] };
 		},
 	);
 
-	server.registerTool("list_categories", { inputSchema: z.object({}) }, async () => {
-		const cats = await listCategories(sql);
-		return { content: [{ type: "text", text: JSON.stringify(cats, null, 2) }] };
-	});
+	server.registerTool(
+		"list_categories",
+		{
+			description:
+				"List every business category available in the directory, so a search can be narrowed to an exact category name.",
+			inputSchema: z.object({}),
+			annotations: {
+				title: "List categories",
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
+		},
+		async () => {
+			const cats = await listCategories(sql);
+			return { content: [{ type: "text", text: JSON.stringify(cats, null, 2) }] };
+		},
+	);
 
 	return server;
 }
