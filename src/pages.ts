@@ -38,6 +38,10 @@ export function layout(title: string, body: string, user?: { phone: string } | n
 <body>
 <nav><a href="/"><strong>Muyiribi</strong></a>${nav}</nav>
 ${body}
+<hr style="margin-top:48px;border:0;border-top:1px solid #eee">
+<footer style="font-size:13px;color:#666;display:flex;gap:16px;padding:16px 0">
+<a href="/info">About</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/support">Support</a>
+</footer>
 <script>
 document.querySelectorAll('[data-toggle-pw]').forEach(function(btn){
   btn.addEventListener('click', function(){
@@ -61,6 +65,85 @@ export function landingPage(user: { phone: string } | null): string {
 ${user ? `<p><a href="/add"><button>Add a listing</button></a></p>` : `<p><a href="/signup"><button>Sign up</button></a> <a href="/login"><button class="secondary">Log in</button></a></p>`}
 `,
 		user,
+	);
+}
+
+export function termsPage(): string {
+	return layout(
+		"Terms of Service",
+		`
+<h1>Terms of Service</h1>
+<p><em>Last updated: ${new Date().toISOString().slice(0, 10)}</em></p>
+<p>Muyiribi ("we", "us") operates a public directory of businesses and service providers in Uganda. By using this site, the API, or the MCP server, you agree to the following:</p>
+<h2>Listings</h2>
+<p>Anyone may search the directory. Business owners may create an account and submit a listing. You confirm that information you submit about a business is accurate and that you are authorised to list it. We may remove any listing that is false, abusive, or violates these terms.</p>
+<h2>Paid tiers</h2>
+<p>Paid tiers affect ranking and listing limits as described on the <a href="/pricing">pricing page</a>. Payments are processed by a third-party provider; refunds are handled on a case-by-case basis — contact <a href="/support">support</a>.</p>
+<h2>AI access</h2>
+<p>This directory is also exposed to AI assistants (e.g. via MCP, or app connectors) so that users of those assistants can search it. The same listing data shown on this site is what such assistants can see and return.</p>
+<h2>No warranty</h2>
+<p>Listings are provided by third parties. We do not verify every business and make no guarantee of quality, availability, or accuracy. Use of any listed business or service is at your own risk.</p>
+<h2>Changes</h2>
+<p>We may update these terms at any time; continued use after a change means you accept the update.</p>
+<h2>Contact</h2>
+<p>Questions about these terms: see the <a href="/support">support page</a>.</p>
+`,
+	);
+}
+
+export function privacyPage(): string {
+	return layout(
+		"Privacy Policy",
+		`
+<h1>Privacy Policy</h1>
+<p><em>Last updated: ${new Date().toISOString().slice(0, 10)}</em></p>
+<h2>What we collect</h2>
+<p>When you create an account: your phone number and a hashed password. When you add a listing: the business details you submit (name, category, district, description, contact info). When you pay for a tier: payment status and reference IDs from our payment provider — we do not store your card or mobile money PIN.</p>
+<h2>How we use it</h2>
+<p>To operate the directory: authenticate you, display your listing, rank listings by tier, and process payments. We do not sell personal data to third parties.</p>
+<h2>AI assistants</h2>
+<p>Listing data (business name, category, district, description, and the contact details you chose to make public) is retrievable through our public search API and MCP server, which AI assistants such as Claude and ChatGPT may query on behalf of their users. Only data you submitted as part of a public listing is exposed this way — account passwords and private payment details are never exposed through these interfaces.</p>
+<h2>Retention</h2>
+<p>We keep account and listing data for as long as your account is active. You can request deletion — see <a href="/support">support</a>.</p>
+<h2>Contact</h2>
+<p>For privacy questions or data deletion requests, see the <a href="/support">support page</a>.</p>
+`,
+	);
+}
+
+export function supportPage(): string {
+	return layout(
+		"Support",
+		`
+<h1>Support</h1>
+<p>Need help with your account, a listing, a payment, or something you found through an AI assistant using this directory?</p>
+<p><strong>Email:</strong> <a href="mailto:domusdeiug@gmail.com">domusdeiug@gmail.com</a></p>
+<p><strong>WhatsApp / Phone:</strong> <a href="https://wa.me/256784786467">+256 784 786467</a></p>
+<h2>Common requests</h2>
+<ul>
+<li>Report an incorrect or outdated listing</li>
+<li>Request removal of your business from the directory</li>
+<li>Payment or tier issues</li>
+<li>Report misuse via an AI assistant connector</li>
+</ul>
+<p>We aim to respond within 2 business days.</p>
+`,
+	);
+}
+
+export function infoPage(): string {
+	return layout(
+		"About Muyiribi",
+		`
+<h1>About Muyiribi</h1>
+<p>Muyiribi is a directory of businesses and service providers across Uganda — built so that people (and increasingly, AI assistants acting on their behalf) can find a real business by what it does, where it is, or what it's called.</p>
+<h2>How it works</h2>
+<p>Business owners create a free account and add a listing: category, district, description, and contact details. Visitors search by keyword, category, or district. Listings can also be found through AI assistants such as Claude and ChatGPT, which can query the directory directly via MCP.</p>
+<h2>Tiers</h2>
+<p>Free accounts can list one business. Paid tiers allow more listings and better ranking in search results — see <a href="/pricing">pricing</a>.</p>
+<h2>Operator</h2>
+<p>Muyiribi is operated by Domus Dei Uganda. Contact details are on the <a href="/support">support page</a>.</p>
+`,
 	);
 }
 
