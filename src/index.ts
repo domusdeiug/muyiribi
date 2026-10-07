@@ -46,6 +46,10 @@ import {
 import {
 	landingPage,
 	authPage,
+	termsPage,
+	privacyPage,
+	supportPage,
+	infoPage,
 	addListingPage,
 	pricingPage,
 	tierPaymentStatusPage,
@@ -301,6 +305,22 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 
 	if (path === "/" && method === "GET") {
 		return html(landingPage(await currentUser(request, sql)));
+	}
+
+	if (path === "/terms" && method === "GET") {
+		return html(termsPage());
+	}
+
+	if (path === "/privacy" && method === "GET") {
+		return html(privacyPage());
+	}
+
+	if (path === "/support" && method === "GET") {
+		return html(supportPage());
+	}
+
+	if (path === "/info" && method === "GET") {
+		return html(infoPage());
 	}
 
 	if (path === "/signup" && method === "GET") {
