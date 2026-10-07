@@ -59,13 +59,94 @@ const LOCK_MINUTES = 15;
 const MIN_PASSWORD = 8;
 
 // ---------- MCP ----------
+// ---------- OpenAI Apps SDK widget ----------
+// Renders search_businesses results as cards inside ChatGPT. Claude and other
+// plain-MCP clients ignore the extra `_meta` fields below, so this is purely
+// additive and does not change behaviour for existing connectors.
+
+const BUSINESS_WIDGET_URI = "ui://widget/business-results.html";
+
+const businessWidgetMeta = {
+	"openai/outputTemplate": BUSINESS_WIDGET_URI,
+	"openai/toolInvocation/invoking": "Searching Muyiribi directory…",
+	"openai/toolInvocation/invoked": "Found matching businesses",
+	"openai/widgetAccessible": true,
+	"openai/resultCanProduceWidget": true,
+} as const;
+
+const BUSINESS_WIDGET_HTML = /* html */ `
+<div id="muyiribi-root"></div>
+<style>
+  #muyiribi-root { font-family: -apple-system, system-ui, sans-serif; }
+  .mb-card {
+    border: 1px solid #e2e2e2; border-radius: 12px; padding: 14px 16px;
+    margin-bottom: 10px; background: #fff;
+  }
+  .mb-name { font-weight: 600; font-size: 15px; margin: 0 0 4px; }
+  .mb-meta { color: #666; font-size: 13px; margin: 0 0 6px; }
+  .mb-desc { font-size: 13px; margin: 0 0 8px; line-height: 1.4; }
+  .mb-contact a { color: #2563eb; text-decoration: none; font-size: 13px; margin-right: 10px; }
+  .mb-empty { color: #777; font-size: 14px; padding: 8px 0; }
+</style>
+<script>
+  (function () {
+    function render(data) {
+      var root = document.getElementById("muyiribi-root");
+      var rows = (data && data.results) || [];
+      if (!rows.length) {
+        root.innerHTML = '<div class="mb-empty">No matching businesses found in the Muyiribi directory.</div>';
+        return;
+      }
+      root.innerHTML = rows.map(function (b) {
+        var contacts = [];
+        if (b.phone) contacts.push('<a href="tel:' + b.phone + '">' + b.phone + '</a>');
+        if (b.whatsapp) contacts.push('<a href="https://wa.me/' + b.whatsapp.replace(/[^0-9]/g, '') + '">WhatsApp</a>');
+        if (b.website) contacts.push('<a href="' + b.website + '" target="_blank" rel="noopener">Website</a>');
+        return '' +
+          '<div class="mb-card">' +
+            '<p class="mb-name">' + (b.business_name || '') + '</p>' +
+            '<p class="mb-meta">' + (b.category || '') + (b.district ? ' · ' + b.district : '') + '</p>' +
+            '<p class="mb-desc">' + (b.description || '') + '</p>' +
+            '<p class="mb-contact">' + contacts.join('') + '</p>' +
+          '</div>';
+      }).join('');
+    }
+    render(window.openai && window.openai.toolOutput);
+    window.addEventListener('openai:set_globals', function (e) {
+      if (e.detail && e.detail.toolOutput) render(e.detail.toolOutput);
+    });
+  })();
+</script>
+`;
 
 function createServer(sql: Sql) {
 	const server = new McpServer({ name: "Muyiribi", version: "1.0.0" });
 
+	server.registerResource(
+		"business-results-widget",
+		BUSINESS_WIDGET_URI,
+		{
+			description: "Card list of Muyiribi business listings",
+			mimeType: "text/html+skybridge",
+			_meta: businessWidgetMeta,
+		},
+		async () => ({
+			contents: [
+				{
+					uri: BUSINESS_WIDGET_URI,
+					mimeType: "text/html+skybridge",
+					text: BUSINESS_WIDGET_HTML,
+					_meta: businessWidgetMeta,
+				},
+			],
+		}),
+	);
+
 	server.registerTool(
 		"search_businesses",
 		{
+			description:
+				"Search the Muyiribi Uganda business directory by keyword, category, and/or district, and show the matches as a card list.",
 			inputSchema: z.object({
 				keyword: z
 					.string()
@@ -88,10 +169,15 @@ function createServer(sql: Sql) {
 					.default(5)
 					.describe("Number of results, 1 to 5"),
 			}),
+			_meta: businessWidgetMeta,
 		},
 		async ({ keyword, category, district, limit }) => {
 			const rows = await searchListings(sql, { keyword, category, district, limit });
-			return { content: [{ type: "text", text: JSON.stringify(rows, null, 2) }] };
+			return {
+				content: [{ type: "text", text: JSON.stringify(rows, null, 2) }],
+				structuredContent: { results: rows },
+				_meta: businessWidgetMeta,
+			};
 		},
 	);
 

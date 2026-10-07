@@ -1,0 +1,36 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "uganda-business-directory",
+  "version": "0.1.1",
+  "description": "Search and look up Ugandan businesses and service providers (by name, category, or district) through the Muyiribi directory, backed by a live Postgres database.",
+  "author": {
+    "name": "Domus Dei Uganda",
+    "email": "domusdeiug@gmail.com",
+    "url": "https://domusdeiug.com"
+  },
+  "homepage": "https://github.com/domusdeiug/muyiribi",
+  "repository": "https://github.com/domusdeiug/muyiribi",
+  "license": "UNLICENSED",
+  "keywords": [
+    "uganda",
+    "business directory",
+    "kampala",
+    "services",
+    "local search",
+    "mcp"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "capabilities": ["Search"],
+        "category": "Research",
+        "defaultPrompt": "Find a business or service provider in Uganda using the Muyiribi directory. You can search by keyword (e.g. 'tv repair'), category, or district (e.g. 'Kampala').",
+        "developerName": "Domus Dei Uganda",
+        "developerUrl": "https://domusdeiug.com",
+        "displayName": "UgandaBusinessDirectory",
+        "longDescription": "Muyiribi is a live directory of Ugandan businesses and service providers. Use search_businesses to find matches by keyword, category, and/or district; use get_business to fetch full contact details (phone, WhatsApp, website, email) for one listing; use list_categories to see all available categories before narrowing a search.",
+        "shortDescription": "Find verified Uganda businesses and services"
+      }
+    }
+  }
+}
