@@ -19,7 +19,7 @@ Results are ranked by tier, highest first (black, green, blue, free).
 4. Local dev: `npm run dev`
 5. Deploy: `npm run deploy`
 
-Your MCP URL will be `https://<worker-name>.<subdomain>.workers.dev/mcp`.
+Your MCP URL is: `https://ug-online.domus-dei-tech.workers.dev/mcp`.
 
 ## Notes
 
@@ -36,5 +36,25 @@ Your MCP URL will be `https://<worker-name>.<subdomain>.workers.dev/mcp`.
   iframe on `/pricing/status`. The page polls `/pricing/check` until payment completes, then
   asks for the verification number (prefilled, editable) and sends the SMS code. Status is only
   trusted from PesaPal's GetTransactionStatus, never from the callback URL.
-- Required secrets, in addition to `DATABASE_URL`: `PESAPAL_CONSUMER_KEY`, `PESAPAL_CONSUMER_SECRET`,
-  `PESAPAL_ENV` ("live" or omit for sandbox), `UGATEXT_CLIENT_ID`, `UGATEXT_CLIENT_SECRET`.
+
+
+## MCP Registry
+- step 0: 
+update version in server.json
+
+- step 1: 
+curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+chmod +x mcp-publisher
+
+- step 2: 
+./mcp-publisher login github
+./mcp-publisher validate server.json
+./mcp-publisher publish server.json
+
+## MCP
+scaffold: npm create cloudflare@latest -- my-mcp --type=mcp-server
+get token for workers from cloudflare
+cd my-mcp
+npm install
+npx wrangler dev        # local dev
+npx wrangler deploy     # deploy
