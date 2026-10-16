@@ -58,6 +58,7 @@ import {
 	dashboardPage,
 	editListingPage,
 	layout,
+	searchPage,
 	pricingPage,
 	tierPaymentStatusPage,
 	DESCRIPTION_MIN,
@@ -75,14 +76,23 @@ const MIN_PASSWORD = 8;
 // plain-MCP clients ignore the extra `_meta` fields below, so this is purely
 // additive and does not change behaviour for existing connectors.
 
-const BUSINESS_WIDGET_URI = "ui://widget/business-results.html";
+const BUSINESS_WIDGET_URI = "ui://widget/business-results-v2.html";
+const PUBLIC_ASSET_ORIGIN = "https://ug-online.domus-dei-tech.workers.dev";
 
 const businessWidgetMeta = {
+	ui: {
+		resourceUri: BUSINESS_WIDGET_URI,
+		csp: { resourceDomains: [PUBLIC_ASSET_ORIGIN] },
+	},
 	"openai/outputTemplate": BUSINESS_WIDGET_URI,
 	"openai/toolInvocation/invoking": "Searching Muyiribi directory…",
 	"openai/toolInvocation/invoked": "Found matching businesses",
 	"openai/widgetAccessible": true,
 	"openai/resultCanProduceWidget": true,
+	"openai/widgetCSP": {
+		connect_domains: [],
+		resource_domains: [PUBLIC_ASSET_ORIGIN],
+	},
 } as const;
 
 const BUSINESS_WIDGET_HTML = /* html */ `
@@ -93,7 +103,8 @@ const BUSINESS_WIDGET_HTML = /* html */ `
     border: 1px solid #e2e2e2; border-radius: 12px; padding: 14px 16px;
     margin-bottom: 10px; background: #fff;
   }
-  .mb-name { font-weight: 600; font-size: 15px; margin: 0 0 4px; }
+  .mb-name { display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 15px; margin: 0 0 4px; }
+  .mb-tier-mark { width: 18px; height: 18px; flex: 0 0 18px; object-fit: contain; }
   .mb-meta { color: #666; font-size: 13px; margin: 0 0 6px; }
   .mb-desc { font-size: 13px; margin: 0 0 8px; line-height: 1.4; }
   .mb-contact a { color: #2563eb; text-decoration: none; font-size: 13px; margin-right: 10px; }
@@ -101,6 +112,15 @@ const BUSINESS_WIDGET_HTML = /* html */ `
 </style>
 <script>
   (function () {
+    var tierMarks = {
+      basic: { src: "${PUBLIC_ASSET_ORIGIN}/basic.png", label: "Basic" },
+      pro: { src: "${PUBLIC_ASSET_ORIGIN}/pro.png", label: "Pro" },
+      premium: { src: "${PUBLIC_ASSET_ORIGIN}/premium.png", label: "Premium" }
+    };
+    function tierMark(code) {
+      var mark = tierMarks[code];
+      return mark ? '<img class="mb-tier-mark" src="' + mark.src + '" alt="' + mark.label + ' verified" title="' + mark.label + ' verified business">' : '';
+    }
     function render(data) {
       var root = document.getElementById("muyiribi-root");
       var rows = (data && data.results) || [];
@@ -115,7 +135,7 @@ const BUSINESS_WIDGET_HTML = /* html */ `
         if (b.website) contacts.push('<a href="' + b.website + '" target="_blank" rel="noopener">Website</a>');
         return '' +
           '<div class="mb-card">' +
-            '<p class="mb-name">' + (b.business_name || '') + '</p>' +
+            '<p class="mb-name"><span>' + (b.business_name || '') + '</span>' + tierMark(b.tier_code) + '</p>' +
             '<p class="mb-meta">' + (b.category || '') + (b.district ? ' · ' + b.district : '') + '</p>' +
             '<p class="mb-desc">' + (b.description || '') + '</p>' +
             '<p class="mb-contact">' + contacts.join('') + '</p>' +
@@ -154,7 +174,17 @@ function toPublicListing(row: Listing) {
 }
 
 function createServer(sql: Sql) {
-	const server = new McpServer({ name: "Muyiribi", version: "1.0.0" });
+	const server = new McpServer({
+		name: "Muyiribi",
+		version: "1.0.0",
+		icons: [
+			{
+				src: `${PUBLIC_ASSET_ORIGIN}/logo.png`,
+				mimeType: "image/png",
+				sizes: ["1254x1254"],
+			},
+		],
+	});
 
 	server.registerResource(
 		"business-results-widget",
@@ -450,6 +480,24 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 
 	if (path === "/" && method === "GET") {
 		return html(landingPage(await currentUser(request, sql)));
+	}
+
+	if (path === "/search" && method === "GET") {
+		const keyword = (url.searchParams.get("keyword") ?? "").trim().slice(0, 100);
+		const district = (url.searchParams.get("district") ?? "").trim().slice(0, 80);
+		const requestedCategory = (url.searchParams.get("category") ?? "").trim();
+		const [user, categories] = await Promise.all([
+			currentUser(request, sql),
+			listCategories(sql),
+		]);
+		const category = categories.includes(requestedCategory) ? requestedCategory : "";
+		const results = await searchListings(sql, {
+			keyword: keyword || undefined,
+			district: district || undefined,
+			category: category || undefined,
+			limit: 12,
+		});
+		return html(searchPage(user, categories, results, { keyword, district, category }));
 	}
 
 	if (path === "/terms" && method === "GET") {

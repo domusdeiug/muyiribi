@@ -52,6 +52,7 @@ export async function searchListings(
 ): Promise<Listing[]> {
 	const category = opts.category ?? null;
 	const district = opts.district ?? null;
+	const districtPattern = district ? `%${district}%` : null;
 
 	// "TV LCD repair!" -> "tv | lcd | repair". Only letters and digits survive, so to_tsquery is safe.
 	const words = (opts.keyword ?? "")
@@ -73,7 +74,7 @@ export async function searchListings(
 			JOIN tiers t ON t.code = u.tier_code
 			WHERE l.status = 'approved'
 			  AND (${category}::text IS NULL OR l.category = ${category})
-			  AND (${district}::text IS NULL OR l.district ILIKE ${district})
+			  AND (${districtPattern}::text IS NULL OR l.district ILIKE ${districtPattern})
 			  AND (${tsq}::text IS NULL OR l.search_vector @@ to_tsquery('simple', ${tsq}))
 		)
 		SELECT id, business_name, owner_name, category, description, district, location,

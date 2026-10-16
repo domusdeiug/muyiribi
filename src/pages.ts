@@ -12,30 +12,35 @@ const STYLE = `
 :root{--ink:#17251e;--muted:#66736b;--line:#dfe7e1;--surface:#fff;--wash:#f4f8f4;--brand:#176b42;--brand-dark:#0f5232;--accent:#e8f5ec;--warn:#9b3b2d;--shadow:0 14px 40px rgba(28,55,38,.08)}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--wash);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55}
 a{color:var(--brand);text-underline-offset:3px}.shell{width:min(1080px,calc(100% - 32px));margin:0 auto}.site-header{position:sticky;top:0;z-index:10;background:rgba(244,248,244,.94);border-bottom:1px solid rgba(223,231,225,.9);backdrop-filter:blur(12px)}
-nav{min-height:68px;display:flex;align-items:center;gap:22px}.brand{display:flex;align-items:center;gap:10px;margin-right:auto;color:var(--ink);font-size:20px;font-weight:800;text-decoration:none}.brand-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--brand);color:#fff;font-size:17px}.nav-links{display:flex;align-items:center;gap:18px}.nav-links a{color:#435149;font-size:14px;font-weight:650;text-decoration:none}.nav-links a:hover{color:var(--brand)}
+nav{min-height:68px;display:flex;align-items:center;gap:22px}.brand{display:flex;align-items:center;gap:10px;margin-right:auto;color:var(--ink);font-size:20px;font-weight:800;text-decoration:none}.brand-logo{width:38px;height:38px;border-radius:11px;object-fit:cover;box-shadow:0 3px 10px rgba(23,37,30,.12)}.nav-links{display:flex;align-items:center;gap:18px}.nav-links a{color:#435149;font-size:14px;font-weight:650;text-decoration:none}.nav-links a:hover{color:var(--brand)}
 main{min-height:calc(100vh - 160px);padding:48px 0 64px}h1{font-size:clamp(32px,5vw,52px);line-height:1.08;letter-spacing:-.035em;margin:0 0 16px}h2{font-size:23px;line-height:1.25;letter-spacing:-.015em;margin:32px 0 12px}h3{margin:0 0 6px;font-size:18px}p{margin:0 0 16px}.lead{font-size:19px;color:#526058;max-width:680px}.eyebrow{color:var(--brand);font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px}
-.hero{padding:48px 0 28px}.hero-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:52px;align-items:center}.hero-card{background:linear-gradient(145deg,#176b42,#0e4f30);color:#fff;padding:30px;border-radius:24px;box-shadow:var(--shadow)}.hero-card p{color:#dceee3}.hero-list{list-style:none;padding:0;margin:24px 0 0}.hero-list li{display:flex;gap:10px;padding:11px 0;border-top:1px solid rgba(255,255,255,.16)}
+.hero{padding:48px 0 28px}.hero-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(310px,.85fr);gap:52px;align-items:center}.search-card{background:#fff;padding:28px;border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow)}.search-card h2{margin:0 0 8px;font-size:26px}.search-card input{margin-bottom:12px}.search-card button{width:100%}.search-form{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(180px,.7fr) minmax(180px,.8fr) auto;gap:12px;align-items:end}.search-form label{margin-bottom:5px}.search-form input,.search-form select{margin:0}.search-form button{white-space:nowrap}.search-summary{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:30px 0 18px}.search-summary h2{margin:0}.contact-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}.contact-actions a{font-size:13px;font-weight:700;text-decoration:none}.result-card{display:flex;flex-direction:column;gap:12px}.result-card .name-line h3{font-size:20px}
 .actions{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0}.button,button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:10px 17px;border:1px solid var(--brand);border-radius:10px;background:var(--brand);color:#fff;font:inherit;font-weight:700;text-decoration:none;cursor:pointer;transition:.15s ease}.button:hover,button:hover{background:var(--brand-dark);border-color:var(--brand-dark);transform:translateY(-1px)}.button.secondary,button.secondary{background:#fff;color:var(--ink);border-color:var(--line)}.button.secondary:hover,button.secondary:hover{background:#f8faf8;border-color:#c8d4cb}.button.small{min-height:38px;padding:7px 13px;font-size:14px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 4px 18px rgba(28,55,38,.04)}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.feature-card{padding:24px}.feature-icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:18px;border-radius:12px;background:var(--accent);color:var(--brand);font-weight:900}
-.page-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:28px}.page-head h1{font-size:38px}.muted{color:var(--muted)}.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0 30px}.stat{background:#fff;border:1px solid var(--line);border-radius:15px;padding:18px}.stat strong{display:block;font-size:25px;line-height:1.2}.stat span{color:var(--muted);font-size:13px}.listing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.listing-card{display:flex;flex-direction:column;gap:12px}.listing-card .actions{margin:auto 0 0}.listing-meta{display:flex;flex-wrap:wrap;gap:7px;color:var(--muted);font-size:13px}.badge{display:inline-flex;align-items:center;width:max-content;padding:4px 9px;border-radius:999px;background:var(--accent);color:var(--brand-dark);font-size:12px;font-weight:750;text-transform:capitalize}.empty{text-align:center;padding:52px 24px}.empty-icon{font-size:32px;margin-bottom:10px}
+.page-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:28px}.page-head h1{font-size:38px}.muted{color:var(--muted)}.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0 30px}.stat{background:#fff;border:1px solid var(--line);border-radius:15px;padding:18px}.stat strong{display:block;font-size:25px;line-height:1.2}.stat span{color:var(--muted);font-size:13px}.listing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.listing-card{display:flex;flex-direction:column;gap:12px}.listing-card .actions{margin:auto 0 0}.name-line{display:flex;align-items:center;gap:6px}.name-line h3{margin:0}.tier-mark{display:inline-block;width:19px;height:19px;flex:0 0 19px;object-fit:contain;vertical-align:-3px}.listing-meta{display:flex;flex-wrap:wrap;gap:7px;color:var(--muted);font-size:13px}.badge{display:inline-flex;align-items:center;width:max-content;padding:4px 9px;border-radius:999px;background:var(--accent);color:var(--brand-dark);font-size:12px;font-weight:750;text-transform:capitalize}.empty{text-align:center;padding:52px 24px}.empty-icon{font-size:32px;margin-bottom:10px}
 .form-card{max-width:820px}.form-section{padding-bottom:8px}.form-section+.form-section{border-top:1px solid var(--line);margin-top:24px;padding-top:4px}form h2{font-size:18px}.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}label{display:block;font-size:14px;font-weight:720;margin-bottom:6px}input,select,textarea{width:100%;padding:11px 12px;margin:0 0 16px;border:1px solid #cbd6ce;border-radius:10px;background:#fff;color:var(--ink);font:inherit;outline:none}textarea{resize:vertical;min-height:122px}input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(23,107,66,.12)}.check-label{display:flex;align-items:center;gap:8px;font-weight:500;margin:-3px 0 10px}.check-label input{width:auto;margin:0}.hint{font-size:13px;color:var(--muted);margin:-10px 0 15px}.pw{position:relative}.pw button{position:absolute;right:6px;top:5px;min-height:34px;background:transparent;border:0;color:var(--brand);padding:4px 8px;font-size:13px}.msg{padding:13px 15px;border-radius:11px;margin-bottom:18px;border:1px solid transparent}.err{background:#fff0ed;color:#812e22;border-color:#f4d4ce}.ok{background:#eaf7ee;color:#185f37;border-color:#cce9d5}
 .auth-wrap{max-width:480px;margin:0 auto}.auth-wrap h1{font-size:38px}.pricing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.pricing-card{display:flex;flex-direction:column}.pricing-card ul{padding-left:20px;flex:1}.price{font-size:27px;font-weight:800}.site-footer{border-top:1px solid var(--line);background:#fff}.footer-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px 0;color:var(--muted);font-size:13px}.footer-links{display:flex;flex-wrap:wrap;gap:16px}
-@media(max-width:760px){.shell{width:min(100% - 24px,1080px)}.site-header{position:static}nav{align-items:flex-start;flex-wrap:wrap;padding:14px 0;gap:12px}.brand{min-height:36px}.nav-links{width:100%;overflow-x:auto;gap:16px;padding-bottom:2px}.nav-links a{white-space:nowrap}main{padding-top:30px}.hero{padding-top:18px}.hero-grid,.grid,.listing-grid,.pricing-grid{grid-template-columns:1fr}.hero-card{padding:24px}.page-head{align-items:flex-start;flex-direction:column}.page-head .actions{margin:0}.stat-grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:1fr}.footer-inner{align-items:flex-start;flex-direction:column}}
+@media(max-width:900px){.search-form{grid-template-columns:1fr 1fr}.search-form button{width:100%}}
+@media(max-width:760px){.shell{width:min(100% - 24px,1080px)}.site-header{position:static}nav{align-items:flex-start;flex-wrap:wrap;padding:14px 0;gap:12px}.brand{min-height:36px}.nav-links{width:100%;overflow-x:auto;gap:16px;padding-bottom:2px}.nav-links a{white-space:nowrap}main{padding-top:30px}.hero{padding-top:18px}.hero-grid,.grid,.listing-grid,.pricing-grid{grid-template-columns:1fr}.search-card{padding:22px}.page-head{align-items:flex-start;flex-direction:column}.page-head .actions{margin:0}.stat-grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:1fr}.footer-inner{align-items:flex-start;flex-direction:column}}
+@media(max-width:560px){.search-form{grid-template-columns:1fr}.search-summary{align-items:flex-start;flex-direction:column}}
 @media(max-width:430px){.stat-grid{grid-template-columns:1fr}h1{font-size:36px}.page-head h1{font-size:32px}}
 `;
 
 export function layout(title: string, body: string, user?: { phone: string } | null): string {
 	const nav = user
-		? `<a href="/dashboard">Dashboard</a><a href="/add">Add business</a><a href="/pricing">Plans</a><a href="/logout">Log out</a>`
-		: `<a href="/login">Log in</a><a href="/signup">Sign up</a>`;
+		? `<a href="/search">Search</a><a href="/dashboard">Dashboard</a><a href="/add">Add business</a><a href="/pricing">Plans</a><a href="/logout">Log out</a>`
+		: `<a href="/search">Find businesses</a><a href="/login">Log in</a><a href="/signup">Sign up</a>`;
 	return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} · Muyiribi</title>
 <meta name="description" content="Find trusted businesses and services across Uganda with Muyiribi.">
+<meta property="og:image" content="https://ug-online.domus-dei-tech.workers.dev/logo.png">
+<link rel="icon" href="/logo.png" type="image/png">
+<link rel="apple-touch-icon" href="/logo.png">
 <style>${STYLE}</style></head>
 <body>
-<header class="site-header"><nav class="shell"><a class="brand" href="/"><span class="brand-mark">M</span>Muyiribi</a><div class="nav-links">${nav}</div></nav></header>
+<header class="site-header"><nav class="shell"><a class="brand" href="/"><img class="brand-logo" src="/logo.png" alt="">Muyiribi</a><div class="nav-links">${nav}</div></nav></header>
 <main class="shell">${body}</main>
 <footer class="site-footer"><div class="shell footer-inner"><span>© ${new Date().getFullYear()} Muyiribi · Built for Uganda</span><div class="footer-links"><a href="/info">About</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/support">Support</a></div></div></footer>
 <script>
@@ -54,7 +59,7 @@ document.querySelectorAll('[data-toggle-pw]').forEach(function(btn){
 export function landingPage(user: { phone: string } | null): string {
 	return layout(
 		"Home",
-		`<section class="hero"><div class="hero-grid"><div><p class="eyebrow">Uganda's business directory</p><h1>Be found by people — and the AI tools they use.</h1><p class="lead">Muyiribi connects Ugandan businesses with customers searching by service, category, and location.</p><div class="actions">${user ? `<a class="button" href="/dashboard">Open your dashboard</a><a class="button secondary" href="/add">Add a business</a>` : `<a class="button" href="/signup">List your business free</a><a class="button secondary" href="/login">Log in</a>`}</div><p class="muted">Quick setup · Free plan available · Built for Ugandan phone numbers</p></div><aside class="hero-card"><p class="eyebrow" style="color:#bce2ca">One listing, more ways to be discovered</p><h2 style="margin-top:0;font-size:28px">Your digital business card for the AI era.</h2><ul class="hero-list"><li><span>✓</span><span>Share your services and contact details</span></li><li><span>✓</span><span>Appear in location and category searches</span></li><li><span>✓</span><span>Update your information at any time</span></li></ul></aside></div></section><section style="padding:38px 0"><p class="eyebrow">How it helps</p><div class="grid"><article class="card feature-card"><div class="feature-icon">01</div><h3>Create your profile</h3><p class="muted">Add a clear description, location, and the best way for customers to reach you.</p></article><article class="card feature-card"><div class="feature-icon">02</div><h3>Get discovered</h3><p class="muted">Customers and AI assistants can match your business to relevant searches.</p></article><article class="card feature-card"><div class="feature-icon">03</div><h3>Stay up to date</h3><p class="muted">Use your dashboard to keep every business detail accurate as you grow.</p></article></div></section>`,
+		`<section class="hero"><div class="hero-grid"><div><p class="eyebrow">Uganda's business directory</p><h1>Find the right business, right here in Uganda.</h1><p class="lead">Search local businesses by what they offer and where they are—or list your own so people and AI tools can discover it.</p><div class="actions">${user ? `<a class="button" href="/dashboard">Open your dashboard</a><a class="button secondary" href="/add">Add a business</a>` : `<a class="button" href="/signup">List your business free</a><a class="button secondary" href="/login">Log in</a>`}</div><p class="muted">No account needed to search · Free plan available</p></div><aside class="search-card"><p class="eyebrow">Search the directory</p><h2>What are you looking for?</h2><p class="muted">Try a business name or service such as “solar installation”.</p><form method="get" action="/search"><label for="home-keyword">Business or service</label><input id="home-keyword" name="keyword" placeholder="e.g. phone repair" required><label for="home-district">District or town</label><input id="home-district" name="district" placeholder="e.g. Kampala"><button type="submit">Search businesses →</button></form></aside></div></section><section style="padding:38px 0"><p class="eyebrow">How it helps</p><div class="grid"><article class="card feature-card"><div class="feature-icon">01</div><h3>Search directly</h3><p class="muted">Find businesses manually by service, category, or location—no AI tool required.</p></article><article class="card feature-card"><div class="feature-icon">02</div><h3>Get discovered</h3><p class="muted">Customers and AI assistants can match your business to relevant searches.</p></article><article class="card feature-card"><div class="feature-icon">03</div><h3>Stay up to date</h3><p class="muted">Use your dashboard to keep every business detail accurate as you grow.</p></article></div></section>`,
 		user,
 	);
 }
@@ -171,6 +176,66 @@ ${
 
 export const DESCRIPTION_MIN = 40;
 
+function tierMark(tierCode: string): string {
+	const marks: Record<string, { file: string; label: string }> = {
+		basic: { file: "basic.png", label: "Basic" },
+		pro: { file: "pro.png", label: "Pro" },
+		premium: { file: "premium.png", label: "Premium" },
+	};
+	const mark = marks[tierCode];
+	return mark
+		? `<img class="tier-mark" src="/${mark.file}" alt="${mark.label} verified" title="${mark.label} verified business">`
+		: "";
+}
+
+export interface PublicSearchQuery {
+	keyword: string;
+	district: string;
+	category: string;
+}
+
+function safeWebsite(value: string | null): string | null {
+	if (!value) return null;
+	try {
+		const url = new URL(value);
+		return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+	} catch {
+		return null;
+	}
+}
+
+export function searchPage(
+	user: { phone: string } | null,
+	categories: string[],
+	results: Listing[],
+	query: PublicSearchQuery,
+): string {
+	const hasFilters = Boolean(query.keyword || query.district || query.category);
+	const cards = results
+		.map((listing) => {
+			const website = safeWebsite(listing.website);
+			const whatsapp = listing.whatsapp?.replace(/[^0-9]/g, "") ?? "";
+			const location = listing.location ? ` · ${esc(listing.location)}` : "";
+			const contacts = [
+				`<a class="button small" href="tel:${esc(listing.phone)}">Call ${esc(listing.phone)}</a>`,
+				whatsapp
+					? `<a class="button secondary small" href="https://wa.me/${whatsapp}" target="_blank" rel="noopener">WhatsApp</a>`
+					: "",
+				website
+					? `<a class="button secondary small" href="${esc(website)}" target="_blank" rel="noopener">Website</a>`
+					: "",
+			].join("");
+			return `<article class="card result-card"><div><div class="name-line"><h3>${esc(listing.business_name)}</h3>${tierMark(listing.tier_code)}</div><div class="listing-meta"><span>${esc(listing.category)}</span><span>·</span><span>${esc(listing.district)}${location}</span></div></div><p class="muted">${esc(listing.description)}</p><div class="contact-actions">${contacts}</div></article>`;
+		})
+		.join("");
+
+	return layout(
+		"Search businesses",
+		`<p class="eyebrow">Public directory</p><h1>Find a business</h1><p class="lead">Search by business name, service, category, or location. No account required.</p><form class="card search-form" method="get" action="/search"><div><label for="keyword">Business or service</label><input id="keyword" name="keyword" value="${esc(query.keyword)}" placeholder="e.g. solar installation"></div><div><label for="district">District or town</label><input id="district" name="district" value="${esc(query.district)}" placeholder="e.g. Kampala"></div><div><label for="category">Category</label><select id="category" name="category"><option value="">All categories</option>${categories.map((category) => `<option value="${esc(category)}"${category === query.category ? " selected" : ""}>${esc(category)}</option>`).join("")}</select></div><button type="submit">Search</button></form><div class="search-summary"><h2>${hasFilters ? "Search results" : "Browse businesses"}</h2><span class="muted">${results.length} ${results.length === 1 ? "business" : "businesses"} found</span></div>${cards ? `<div class="listing-grid">${cards}</div>` : `<section class="card empty"><div class="empty-icon">⌕</div><h2 style="margin-top:0">No businesses found</h2><p class="muted">Try fewer words, another category, or a nearby district.</p><a href="/search">Clear search</a></section>`}`,
+		user,
+	);
+}
+
 export type ListingFormValues = Partial<
 	Pick<
 		Listing,
@@ -262,7 +327,7 @@ export function dashboardPage(
 	const cards = listings
 		.map(
 			(listing) =>
-				`<article class="card listing-card"><div><span class="badge">${esc(listing.status ?? "approved")}</span></div><div><h3>${esc(listing.business_name)}</h3><div class="listing-meta"><span>${esc(listing.category)}</span><span>·</span><span>${esc(listing.district)}</span></div></div><p class="muted">${esc(listing.description.length > 145 ? `${listing.description.slice(0, 145)}…` : listing.description)}</p><div class="actions"><a class="button small" href="/listings/${listing.id}/edit">Edit details</a></div></article>`,
+				`<article class="card listing-card"><div><span class="badge">${esc(listing.status ?? "approved")}</span></div><div><div class="name-line"><h3>${esc(listing.business_name)}</h3>${tierMark(listing.tier_code)}</div><div class="listing-meta"><span>${esc(listing.category)}</span><span>·</span><span>${esc(listing.district)}</span></div></div><p class="muted">${esc(listing.description.length > 145 ? `${listing.description.slice(0, 145)}…` : listing.description)}</p><div class="actions"><a class="button small" href="/listings/${listing.id}/edit">Edit details</a></div></article>`,
 		)
 		.join("");
 	return layout(

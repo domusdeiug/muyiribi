@@ -5,6 +5,7 @@ Business directory for Uganda. Cloudflare Worker + Neon Postgres, with a simple 
 ## Routes
 
 - `/` landing page
+- `/search` public business search by keyword, category, and district
 - `/signup`, `/login`, `/logout` phone + password accounts (password show/hide toggle)
 - `/dashboard` manage the signed-in account's business listings and plan capacity
 - `/add` add a business listing (creation limit depends on tier; description min 40 characters)
@@ -39,24 +40,25 @@ Your MCP URL is: `https://ug-online.domus-dei-tech.workers.dev/mcp`.
   asks for the verification number (prefilled, editable) and sends the SMS code. Status is only
   trusted from PesaPal's GetTransactionStatus, never from the callback URL.
 
-
 ## MCP Registry
-- step 0: 
-update version in server.json
 
-- step 1: 
-curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
-chmod +x mcp-publisher
+- step 0:
+  update version in server.json
 
-- step 2: 
-./mcp-publisher login github
-./mcp-publisher validate server.json
-./mcp-publisher publish server.json
+- step 1:
+  curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')\_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+  chmod +x mcp-publisher
+
+- step 2:
+  ./mcp-publisher login github
+  ./mcp-publisher validate server.json
+  ./mcp-publisher publish server.json
 
 ## MCP
+
 scaffold: npm create cloudflare@latest -- my-mcp --type=mcp-server
 get token for workers from cloudflare
 cd my-mcp
 npm install
-npx wrangler dev        # local dev
-npx wrangler deploy     # deploy
+npx wrangler dev # local dev
+npx wrangler deploy # deploy
