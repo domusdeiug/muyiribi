@@ -387,6 +387,13 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 		return html(infoPage());
 	}
 
+	if (path === "/.well-known/openai-apps-challenge" && method === "GET") {
+		return new Response("g7fMecR4OtYfmRUWhMOlSqNh47x9RkWp77TtBrpXEB4", {
+			status: 200,
+			headers: { "content-type": "text/plain; charset=utf-8" },
+		});
+	}
+
 	if (path === "/signup" && method === "GET") {
 		return html(authPage("signup"));
 	}
