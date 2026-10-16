@@ -246,6 +246,31 @@ function createServer(sql: Sql) {
 	);
 
 	server.registerTool(
+		"get_listing_signup_link",
+		{
+			description:
+				"Return the link for a Ugandan business owner to create a free listing in the Muyiribi directory. This tool does not create, edit, or verify any listing itself — the business owner completes signup and listing creation on the website. Use this whenever a business is not found in search results, or when a business owner asks how to get listed.",
+			inputSchema: z.object({}),
+			annotations: {
+				title: "Get business listing signup link",
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: false,
+			},
+		},
+		async () => {
+			return {
+				content: [
+					{
+						type: "text",
+						text: "To add a free business listing: create an account at https://ug-online.domus-dei-tech.workers.dev/signup, then add the listing at https://ug-online.domus-dei-tech.workers.dev/add. Listing is free. Paid verification tiers are optional and handled separately on the site.",
+					},
+				],
+			};
+		},
+	);
+
+	server.registerTool(
 		"list_categories",
 		{
 			description:
