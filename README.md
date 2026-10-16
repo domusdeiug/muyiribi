@@ -6,7 +6,9 @@ Business directory for Uganda. Cloudflare Worker + Neon Postgres, with a simple 
 
 - `/` landing page
 - `/signup`, `/login`, `/logout` phone + password accounts (password show/hide toggle)
+- `/dashboard` manage the signed-in account's business listings and plan capacity
 - `/add` add a business listing (creation limit depends on tier; description min 40 characters)
+- `/listings/:id/edit` securely edit a listing owned by the signed-in account
 - `/mcp` MCP endpoint with tools: `search_businesses`, `get_business`, `list_categories`
 
 Results are ranked by tier, highest first (black, green, blue, free).

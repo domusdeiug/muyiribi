@@ -5,4 +5,5 @@ interface Env {
 	PESAPAL_ENV?: string; // "live" or unset/anything else = sandbox
 	UGATEXT_CLIENT_ID: string;
 	UGATEXT_CLIENT_SECRET: string;
+	UGATEXT_API_KEY: string;
 }

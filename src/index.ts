@@ -27,6 +27,9 @@ import {
 	effectiveTierLimit,
 	countOwnListings,
 	insertListing,
+	listOwnListings,
+	getOwnListing,
+	updateOwnListing,
 	getUserProfile,
 	listTiers,
 	createTierPayment,
@@ -52,6 +55,9 @@ import {
 	supportPage,
 	infoPage,
 	addListingPage,
+	dashboardPage,
+	editListingPage,
+	layout,
 	pricingPage,
 	tierPaymentStatusPage,
 	DESCRIPTION_MIN,
@@ -225,7 +231,9 @@ function createServer(sql: Sql) {
 			inputSchema: z.object({
 				id: z
 					.union([z.string(), z.number()])
-					.describe("Listing id, as returned by search_businesses (accepts string or number)"),
+					.describe(
+						"Listing id, as returned by search_businesses (accepts string or number)",
+					),
 			}),
 			annotations: {
 				title: "Get business details",
@@ -341,9 +349,55 @@ async function readForm(request: Request): Promise<Record<string, string>> {
 async function startSession(sql: Sql, userId: number): Promise<Response> {
 	const token = newSessionToken();
 	await createSession(sql, await hashToken(token), userId, new Date(Date.now() + SESSION_TTL_MS));
-	return redirect("/add", {
+	return redirect("/dashboard", {
 		"set-cookie": sessionCookie(token, Math.floor(SESSION_TTL_MS / 1000)),
 	});
+}
+
+function validatedListing(
+	f: Record<string, string>,
+	categories: string[],
+): { ok: false; error: string } | { ok: true; data: Record<string, unknown> } {
+	if (!f.business_name) return { ok: false, error: "Business name is required." };
+	if (!f.category || !categories.includes(f.category))
+		return { ok: false, error: "Choose a valid category." };
+	if ((f.description ?? "").length < DESCRIPTION_MIN)
+		return {
+			ok: false,
+			error: `Description must be at least ${DESCRIPTION_MIN} characters.`,
+		};
+	if (!f.district) return { ok: false, error: "District is required." };
+	const phone = normalisePhone(f.phone ?? "");
+	if (!phone) return { ok: false, error: "Enter a valid contact phone number." };
+	const whatsapp = f.whatsapp ? normalisePhone(f.whatsapp) : null;
+	if (f.whatsapp && !whatsapp)
+		return { ok: false, error: "Enter a valid WhatsApp number or leave it blank." };
+	if (f.website) {
+		try {
+			const website = new URL(f.website);
+			if (website.protocol !== "http:" && website.protocol !== "https:") throw new Error();
+		} catch {
+			return {
+				ok: false,
+				error: "Enter a complete website address, for example https://example.com.",
+			};
+		}
+	}
+	return {
+		ok: true,
+		data: {
+			business_name: f.business_name,
+			owner_name: f.owner_name || null,
+			category: f.category,
+			description: f.description,
+			district: f.district,
+			location: f.location || null,
+			phone,
+			whatsapp,
+			email: f.email || null,
+			website: f.website || null,
+		},
+	};
 }
 
 // ---------- tier payment processing (shared by IPN callback and manual check) ----------
@@ -377,7 +431,9 @@ async function tierStateFor(sql: Sql, userId: number) {
 	if (latest.payment_status === "failed") return { latest, state: "failed" as const };
 	if (latest.payment_status === "paid") {
 		// Paid, number not yet submitted for OTP -> otp. Code sent -> otp_sent.
-		const sent = !!latest.otp_hash && !!latest.otp_expires_at &&
+		const sent =
+			!!latest.otp_hash &&
+			!!latest.otp_expires_at &&
 			new Date(latest.otp_expires_at) > new Date();
 		return { latest, state: sent ? ("otp_sent" as const) : ("otp" as const) };
 	}
@@ -479,6 +535,30 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 		return redirect("/", { "set-cookie": sessionCookie("", 0) });
 	}
 
+	if (path === "/dashboard" && method === "GET") {
+		const user = await currentUser(request, sql);
+		if (!user) return redirect("/login");
+		const [profile, tiers, listings, limit] = await Promise.all([
+			getUserProfile(sql, user.id),
+			listTiers(sql),
+			listOwnListings(sql, user.id),
+			effectiveTierLimit(sql, user.id),
+		]);
+		if (!profile) return redirect("/login");
+		const tier = tiers.find((item) => item.code === profile.tier_code) ?? tiers[0];
+		if (!tier) return html("<h1>Account plan unavailable</h1>", 500);
+		return html(
+			dashboardPage(
+				user,
+				profile,
+				tier,
+				listings,
+				limit,
+				url.searchParams.get("saved") === "1",
+			),
+		);
+	}
+
 	if (path === "/add" && method === "GET") {
 		const user = await currentUser(request, sql);
 		if (!user) return redirect("/login");
@@ -508,34 +588,79 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 		}
 
 		const f = await readForm(request);
-		const fail = (error: string) => html(addListingPage(user, categories, { error }), 400);
+		const validated = validatedListing(f, categories);
+		if (!validated.ok)
+			return html(
+				addListingPage(user, categories, { error: validated.error, values: f }),
+				400,
+			);
 
-		if (!f.business_name) return fail("Business name is required.");
-		if (!f.category || !categories.includes(f.category))
-			return fail("Choose a valid category.");
-		if ((f.description ?? "").length < DESCRIPTION_MIN)
-			return fail(`Description must be at least ${DESCRIPTION_MIN} characters.`);
-		if (!f.district) return fail("District is required.");
-		const phone = normalisePhone(f.phone ?? "");
-		if (!phone) return fail("Enter a valid contact phone number.");
-		const whatsapp = f.whatsapp ? normalisePhone(f.whatsapp) : null;
-		if (f.whatsapp && !whatsapp)
-			return fail("Enter a valid WhatsApp number or leave it blank.");
+		await insertListing(sql, user.id, validated.data);
+		return redirect("/dashboard?saved=1");
+	}
 
-		await insertListing(sql, user.id, {
-			business_name: f.business_name,
-			owner_name: f.owner_name || null,
-			category: f.category,
-			description: f.description,
-			district: f.district,
-			location: f.location || null,
-			phone,
-			whatsapp,
-			email: f.email || null,
-			website: f.website || null,
-		});
+	const editMatch = path.match(/^\/listings\/(\d+)\/edit$/);
+	if (editMatch && method === "GET") {
+		const user = await currentUser(request, sql);
+		if (!user) return redirect("/login");
+		const listingId = Number(editMatch[1]);
+		const [listing, categories] = await Promise.all([
+			getOwnListing(sql, user.id, listingId),
+			listCategories(sql),
+		]);
+		if (!listing)
+			return html(
+				layout(
+					"Listing not found",
+					`<h1>Listing not found</h1><p>This listing does not exist or does not belong to your account.</p><a class="button" href="/dashboard">Back to dashboard</a>`,
+					user,
+				),
+				404,
+			);
+		return html(editListingPage(user, categories, listing));
+	}
 
-		return redirect("/add?saved=1");
+	if (editMatch && method === "POST") {
+		const user = await currentUser(request, sql);
+		if (!user) return redirect("/login");
+		const listingId = Number(editMatch[1]);
+		const [listing, categories] = await Promise.all([
+			getOwnListing(sql, user.id, listingId),
+			listCategories(sql),
+		]);
+		if (!listing)
+			return html(
+				layout(
+					"Listing not found",
+					`<h1>Listing not found</h1><p>This listing does not exist or does not belong to your account.</p><a class="button" href="/dashboard">Back to dashboard</a>`,
+					user,
+				),
+				404,
+			);
+		const f = await readForm(request);
+		const validated = validatedListing(f, categories);
+		if (!validated.ok) {
+			return html(
+				editListingPage(
+					user,
+					categories,
+					{ id: listingId, ...f },
+					{ error: validated.error },
+				),
+				400,
+			);
+		}
+		const updated = await updateOwnListing(sql, user.id, listingId, validated.data);
+		if (!updated)
+			return html(
+				layout(
+					"Listing not found",
+					`<h1>Listing not found</h1><p>This listing does not exist or does not belong to your account.</p><a class="button" href="/dashboard">Back to dashboard</a>`,
+					user,
+				),
+				404,
+			);
+		return redirect("/dashboard?saved=1");
 	}
 
 	// ---------- pricing & tier payments ----------
@@ -718,9 +843,7 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 			);
 		}
 
-		return html(
-			tierPaymentStatusPage(sessionUser, { kind: "otp_sent", tierName, phone }),
-		);
+		return html(tierPaymentStatusPage(sessionUser, { kind: "otp_sent", tierName, phone }));
 	}
 
 	// Code entry. Checks the hash, enforces attempts, then grants the tier.
@@ -817,7 +940,6 @@ async function handleWeb(request: Request, env: Env): Promise<Response> {
 	if (path === "/pricing/check-status" || path === "/pricing/check") {
 		return redirect("/pricing/status");
 	}
-
 
 	// Old URL, kept as a redirect in case it's bookmarked anywhere.
 	if (path === "/verify") return redirect("/pricing");

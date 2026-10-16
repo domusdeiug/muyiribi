@@ -12,6 +12,7 @@ const rowsOf = (r: unknown): Row[] => r as Row[];
 
 export interface Listing {
 	id: number;
+	owner_id?: number;
 	business_name: string;
 	owner_name: string | null;
 	category: string;
@@ -25,6 +26,9 @@ export interface Listing {
 	tier_code: string;
 	tier_rank: number;
 	relevance: number;
+	status?: string;
+	created_at?: string;
+	updated_at?: string;
 }
 
 export interface UserRow {
@@ -217,6 +221,43 @@ export async function listOwnListings(sql: Sql, userId: number): Promise<Listing
 	return rows as unknown as Listing[];
 }
 
+export async function getOwnListing(
+	sql: Sql,
+	userId: number,
+	listingId: number,
+): Promise<Listing | null> {
+	const rows = rowsOf(
+		await sql`
+		SELECT l.*, t.code AS tier_code, t.rank AS tier_rank
+		FROM listings l
+		JOIN users u ON u.id = l.owner_id
+		JOIN tiers t ON t.code = u.tier_code
+		WHERE l.id = ${listingId} AND l.owner_id = ${userId}`,
+	);
+	return (rows[0] as Listing) ?? null;
+}
+
+export async function updateOwnListing(
+	sql: Sql,
+	userId: number,
+	listingId: number,
+	data: Record<string, unknown>,
+): Promise<boolean> {
+	const rows = rowsOf(
+		await sql`
+		UPDATE listings SET
+			business_name = ${data.business_name}, owner_name = ${data.owner_name ?? null},
+			category = ${data.category}, description = ${data.description},
+			district = ${data.district}, location = ${data.location ?? null},
+			phone = ${data.phone}, whatsapp = ${data.whatsapp ?? null},
+			email = ${data.email ?? null}, website = ${data.website ?? null},
+			updated_at = now()
+		WHERE id = ${listingId} AND owner_id = ${userId}
+		RETURNING id`,
+	);
+	return rows.length > 0;
+}
+
 // ---------- pricing / tier catalog ----------
 
 export interface TierInfo {
@@ -304,12 +345,7 @@ export async function setTierPaymentOtp(
 		WHERE id = ${id}`;
 }
 
-export async function setTierPaymentRef(
-	sql: Sql,
-	id: number,
-	ref: string,
-	redirectUrl: string,
-) {
+export async function setTierPaymentRef(sql: Sql, id: number, ref: string, redirectUrl: string) {
 	await sql`UPDATE tier_payments SET payment_ref = ${ref}, redirect_url = ${redirectUrl} WHERE id = ${id}`;
 }
 
