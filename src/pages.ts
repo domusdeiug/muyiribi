@@ -103,7 +103,6 @@ export function privacyPage(): string {
 <p>To operate the directory: authenticate you, display your listing, rank listings by tier, and process payments. We do not sell personal data to third parties.</p>
 <h2>AI assistants</h2>
 <p>Listing data (business name, category, district, description, and the contact details you chose to make public) is retrievable through our public search API and MCP server, which AI assistants such as Claude and ChatGPT may query on behalf of their users. Only data you submitted as part of a public listing is exposed this way — account passwords and private payment details are never exposed through these interfaces.</p>
-<p>We also store the search keywords provided by the ai assistants to better know which businesses are commonly sought.</p>
 <h2>Retention</h2>
 <p>We keep account and listing data for as long as your account is active. You can request deletion — see <a href="/support">support</a>.</p>
 <h2>Contact</h2>
