@@ -42,7 +42,7 @@ export function layout(title: string, body: string, user?: { phone: string } | n
 <body>
 <header class="site-header"><nav class="shell"><a class="brand" href="/"><img class="brand-logo" src="/logo.png" alt="">Muyiribi</a><div class="nav-links">${nav}</div></nav></header>
 <main class="shell">${body}</main>
-<footer class="site-footer"><div class="shell footer-inner"><span>© ${new Date().getFullYear()} Muyiribi · Built for Uganda</span><div class="footer-links"><a href="/info">About</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/support">Support</a></div></div></footer>
+<footer class="site-footer"><div class="shell footer-inner"><span>© ${new Date().getFullYear()} Muyiribi · Designed and Built by Domus Dei Uganda</span><div class="footer-links"><a href="/info">About</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/support">Support</a></div></div></footer>
 <script>
 document.querySelectorAll('[data-toggle-pw]').forEach(function(btn){
   btn.addEventListener('click', function(){
@@ -70,7 +70,7 @@ export function termsPage(): string {
 		`
 <h1>Terms of Service</h1>
 <p><em>Last updated: ${new Date().toISOString().slice(0, 10)}</em></p>
-<p>Domus Dei Uganda operates a public directory of businesses and service providers in Uganda (Muyiribi/UG-Online). By using this site, the API, or the MCP server, you agree to the following:</p>
+<p>Domus Dei Uganda operates a public directory of businesses and service providers in Uganda (Muyiribi). By using this site, the API, or the MCP server, you agree to the following:</p>
 <h2>Listings</h2>
 <p>Anyone may search the directory. Business owners may create an account and submit a listing. You confirm that information you submit about a business is accurate and that you are authorised to list it. We may remove any listing that is false, abusive, or violates these terms.</p>
 <h2>Paid tiers</h2>
@@ -404,7 +404,7 @@ ${cta}
 	return layout(
 		"Pricing",
 		`<p class="eyebrow">Simple plans</p><h1>Grow your reach</h1>
-<p class="lead">List more businesses, rank higher in search, and verify your business contact number by SMS.</p>
+<p class="lead">List more businesses, rank higher in search, and verify your business contacts and location.</p>
 ${opts.error ? `<div class="msg err">${esc(opts.error)}</div>` : ""}
 <div class="pricing-grid">${cards}</div>`,
 		user,
