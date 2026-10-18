@@ -19,7 +19,7 @@ main{min-height:calc(100vh - 160px);padding:48px 0 64px}h1{font-size:clamp(32px,
 .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 4px 18px rgba(28,55,38,.04)}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.feature-card{padding:24px}.feature-icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:18px;border-radius:12px;background:var(--accent);color:var(--brand);font-weight:900}
 .page-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:28px}.page-head h1{font-size:38px}.muted{color:var(--muted)}.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0 30px}.stat{background:#fff;border:1px solid var(--line);border-radius:15px;padding:18px}.stat strong{display:block;font-size:25px;line-height:1.2}.stat span{color:var(--muted);font-size:13px}.listing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.listing-card{display:flex;flex-direction:column;gap:12px}.listing-card .actions{margin:auto 0 0}.name-line{display:flex;align-items:center;gap:6px}.name-line h3{margin:0}.tier-mark{display:inline-block;width:19px;height:19px;flex:0 0 19px;object-fit:contain;vertical-align:-3px}.listing-meta{display:flex;flex-wrap:wrap;gap:7px;color:var(--muted);font-size:13px}.badge{display:inline-flex;align-items:center;width:max-content;padding:4px 9px;border-radius:999px;background:var(--accent);color:var(--brand-dark);font-size:12px;font-weight:750;text-transform:capitalize}.empty{text-align:center;padding:52px 24px}.empty-icon{font-size:32px;margin-bottom:10px}
 .form-card{max-width:820px}.form-section{padding-bottom:8px}.form-section+.form-section{border-top:1px solid var(--line);margin-top:24px;padding-top:4px}form h2{font-size:18px}.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}label{display:block;font-size:14px;font-weight:720;margin-bottom:6px}input,select,textarea{width:100%;padding:11px 12px;margin:0 0 16px;border:1px solid #cbd6ce;border-radius:10px;background:#fff;color:var(--ink);font:inherit;outline:none}textarea{resize:vertical;min-height:122px}input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(23,107,66,.12)}.check-label{display:flex;align-items:center;gap:8px;font-weight:500;margin:-3px 0 10px}.check-label input{width:auto;margin:0}.hint{font-size:13px;color:var(--muted);margin:-10px 0 15px}.pw{position:relative}.pw button{position:absolute;right:6px;top:5px;min-height:34px;background:transparent;border:0;color:var(--brand);padding:4px 8px;font-size:13px}.msg{padding:13px 15px;border-radius:11px;margin-bottom:18px;border:1px solid transparent}.err{background:#fff0ed;color:#812e22;border-color:#f4d4ce}.ok{background:#eaf7ee;color:#185f37;border-color:#cce9d5}
-.auth-wrap{max-width:480px;margin:0 auto}.auth-wrap h1{font-size:38px}.pricing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.pricing-card{display:flex;flex-direction:column}.pricing-card ul{padding-left:20px;flex:1}.price{font-size:27px;font-weight:800}.site-footer{border-top:1px solid var(--line);background:#fff}.footer-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px 0;color:var(--muted);font-size:13px}.footer-links{display:flex;flex-wrap:wrap;gap:16px}
+.auth-wrap{max-width:480px;margin:0 auto}.auth-wrap h1{font-size:38px}.pricing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.pricing-card{display:flex;flex-direction:column}.pricing-card .name-line h2{margin:0}.pricing-card .tier-mark{width:24px;height:24px;flex-basis:24px}.pricing-card ul{padding-left:20px;flex:1}.price{font-size:27px;font-weight:800}.site-footer{border-top:1px solid var(--line);background:#fff}.footer-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px 0;color:var(--muted);font-size:13px}.footer-links{display:flex;flex-wrap:wrap;gap:16px}
 @media(max-width:900px){.search-form{grid-template-columns:1fr 1fr}.search-form button{width:100%}}
 @media(max-width:760px){.shell{width:min(100% - 24px,1080px)}.site-header{position:static}nav{align-items:flex-start;flex-wrap:wrap;padding:14px 0;gap:12px}.brand{min-height:36px}.nav-links{width:100%;overflow-x:auto;gap:16px;padding-bottom:2px}.nav-links a{white-space:nowrap}main{padding-top:30px}.hero{padding-top:18px}.hero-grid,.grid,.listing-grid,.pricing-grid{grid-template-columns:1fr}.search-card{padding:22px}.page-head{align-items:flex-start;flex-direction:column}.page-head .actions{margin:0}.stat-grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:1fr}.footer-inner{align-items:flex-start;flex-direction:column}}
 @media(max-width:560px){.search-form{grid-template-columns:1fr}.search-summary{align-items:flex-start;flex-direction:column}}
@@ -28,7 +28,7 @@ main{min-height:calc(100vh - 160px);padding:48px 0 64px}h1{font-size:clamp(32px,
 
 export function layout(title: string, body: string, user?: { phone: string } | null): string {
 	const nav = user
-		? `<a href="/search">Search</a><a href="/dashboard">Dashboard</a><a href="/add">Add business</a><a href="/pricing">Plans</a><a href="/logout">Log out</a>`
+		? `<a href="/search">Search</a><a href="/dashboard">Dashboard</a><a href="/add">Add business</a><a href="/pricing">Pricing</a><a href="/logout">Log out</a>`
 		: `<a href="/search">Find businesses</a><a href="/login">Log in</a><a href="/signup">Sign up</a>`;
 	return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -352,6 +352,7 @@ function featureLines(t: TierInfo): string[] {
 			: `Up to ${t.show_limit} listing${t.show_limit === 1 ? "" : "s"} shown in search`,
 	);
 	if (t.rank > 0) {
+		lines.push(`${t.name} verification mark beside your business name`);
 		lines.push("Verifies your business contact number (SMS code)");
 		lines.push("Higher search ranking than lower tiers");
 	}
@@ -393,7 +394,7 @@ export function pricingPage(
 			}
 
 			return `<article class="card pricing-card">
-<h2 style="margin-top:0">${esc(t.name)}</h2>
+<div class="name-line"><h2 style="margin-top:0">${esc(t.name)}</h2>${tierMark(t.code)}</div>
 <p class="price">${isFree ? "Free" : `UGX ${t.price_ugx.toLocaleString()}`} ${isFree ? "" : `<small class="muted" style="font-size:13px">/ ${esc(t.billing_period)}</small>`}</p>
 <ul>${features}</ul>
 ${cta}
