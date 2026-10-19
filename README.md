@@ -55,8 +55,9 @@ Your MCP URL is: `https://ug-online.domus-dei-tech.workers.dev/mcp`.
   ./mcp-publisher publish server.json
 
 ## MCP
-
-scaffold: npm create cloudflare@latest -- my-mcp --type=mcp-server
+- Do the first command from outside the folder you want to create.
+- Change my-mcp-server to the name of your server
+scaffold: npm create cloudflare@latest -- my-mcp-server --template=cloudflare/ai/demos/remote-mcp-authless   
 get token for workers from cloudflare
 cd my-mcp
 npm install
