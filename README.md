@@ -10,7 +10,7 @@ Business directory for Uganda. Cloudflare Worker + Neon Postgres, with a simple 
 - `/dashboard` manage the signed-in account's business listings and plan capacity
 - `/add` add a business listing (creation limit depends on tier; description min 40 characters)
 - `/listings/:id/edit` securely edit a listing owned by the signed-in account
-- `/mcp` MCP endpoint with tools: `search_businesses`, `get_business`, `list_categories`
+- `/mcp` MCP endpoint with business-directory tools (`search_businesses`, `get_business`, `list_categories`, `get_listing_signup_link`) and `search_marketplace` for Jiji Uganda products
 
 Results are ranked by tier, highest first (black, green, blue, free).
 
@@ -23,6 +23,16 @@ Results are ranked by tier, highest first (black, green, blue, free).
 5. Deploy: `npm run deploy`
 
 Your MCP URL is: `https://ug-online.domus-dei-tech.workers.dev/mcp`.
+
+## Marketplace search
+
+`search_marketplace` searches public Jiji Uganda adverts, separately from the Muyiribi business directory. Supply a `query` and optionally complete item phrases in `synonyms` (e.g. `wedding gown` with `wedding dress`, `bridal gown`, `bridal dress`). Other inputs include UGX price bounds, region, page, sort, result target, fetch-page cap and relevance threshold. The tool returns listing titles, prices, a first image URL, image count, attributes and the original Jiji listing link. No contact information is scraped; users follow that link to Jiji.
+
+The ChatGPT marketplace widget renders product cards with photos from Jiji's image CDN and links to the Jiji listings. Other MCP clients receive the same structured data and text, but may not render the widget. Image availability depends on Jiji's CDN. The Worker fetches Jiji anonymously; if Jiji blocks Cloudflare-origin traffic, the tool reports an upstream error rather than showing an empty result.
+
+Searches use complete title-phrase matching and a newest-first candidate pool (with one-page lookahead); explicit price sorts return one unscored page, matching the original Python tool. Search responses are cached for 20 minutes in Cloudflare's per-datacenter Cache API (best effort, not a globally shared cache).
+
+Run offline tests with `npm test` and check types with `npm run type-check`. Deployment is separate: `npm run deploy`.
 
 ## Notes
 

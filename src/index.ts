@@ -65,6 +65,8 @@ import {
 } from "./pages";
 import { submitVerificationOrder, getPesapalTransactionStatus, isCompletedStatus } from "./pesapal";
 import { sendSms } from "./ugatext";
+import { searchMarketplace } from "./marketplace";
+import { MARKETPLACE_WIDGET_HTML, MARKETPLACE_WIDGET_URI, marketplaceWidgetMeta } from "./marketplace-widget";
 
 const MAX_FAILED_LOGINS = 5;
 const LOCK_MINUTES = 15;
@@ -204,6 +206,59 @@ function createServer(sql: Sql) {
 				},
 			],
 		}),
+	);
+
+	server.registerResource(
+		"marketplace-results-widget",
+		MARKETPLACE_WIDGET_URI,
+		{
+			description: "Product cards with photos linking to Jiji listings",
+			mimeType: "text/html+skybridge",
+			_meta: marketplaceWidgetMeta,
+		},
+		async () => ({
+			contents: [{
+				uri: MARKETPLACE_WIDGET_URI,
+				mimeType: "text/html+skybridge",
+				text: MARKETPLACE_WIDGET_HTML,
+				_meta: marketplaceWidgetMeta,
+			}],
+		}),
+	);
+
+	server.registerTool(
+		"search_marketplace",
+		{
+			description: "Search Jiji Uganda product listings. Supply complete alternate item phrases in synonyms (e.g. wedding dress, bridal gown for wedding gown). Newest listings are filtered by whole-phrase relevance, ranked and capped; price is in UGX. Results link to Jiji; users reveal contacts there. Explicit price sorts return a single unscored page. This does not search Muyiribi businesses.",
+			inputSchema: z.object({
+				query: z.string().min(1).describe("Item to search for, e.g. wedding gown"),
+				synonyms: z.array(z.string()).optional().describe("Complete alternative item phrases, e.g. ['wedding dress', 'bridal gown']"),
+				min_price: z.number().int().min(0).optional().describe("Minimum price in UGX"),
+				max_price: z.number().int().min(0).optional().describe("Maximum price in UGX"),
+				region: z.string().optional().describe("Jiji region slug, e.g. central-division"),
+				sort: z.enum(["rel", "new", "price", "price_desc"]).default("rel").describe("rel/new: newest-first with phrase ranking; price sorts: one unscored page"),
+				page: z.number().int().min(1).default(1),
+				target_results: z.number().int().min(1).max(50).default(15).describe("Maximum results returned"),
+				max_fetch_pages: z.number().int().min(1).max(10).default(6).describe("Maximum Jiji pages fetched"),
+				min_relevance_score: z.number().int().min(1).max(20).default(1).describe("Minimum complete-phrase score; two-word phrases score at least 2"),
+				source: z.string().default("jiji").describe("Marketplace source; currently only jiji"),
+			}),
+			annotations: {
+				title: "Search marketplace",
+				readOnlyHint: true,
+				destructiveHint: false,
+				openWorldHint: true,
+			},
+			_meta: marketplaceWidgetMeta,
+		},
+		async (params) => {
+			const result = await searchMarketplace(params, fetch, caches.default);
+			return {
+				content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+				structuredContent: result,
+				_meta: marketplaceWidgetMeta,
+			};
+		},
 	);
 
 	server.registerTool(

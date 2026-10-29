@@ -1,0 +1,71 @@
+{
+  "adverts_list": {
+    "adverts": [
+      {
+        "attrs": [
+          {"name": "Condition", "value": "Used", "unit": null},
+          {"name": "Processor", "value": "Intel Core i5", "unit": null},
+          {"name": "Display Size", "value": "12\" /12.3\"", "unit": null}
+        ],
+        "guid": "l6h0pqJE7CnOrI7hxXDJ34DJ",
+        "id": 6572525,
+        "image_obj": {"url": "https://pictures-uganda.jijistatic.com/24041952.webp"},
+        "images": [
+          {"url": "https://pictures-uganda.jijistatic.com/24041952.webp", "size": [300, 634]},
+          {"url": "https://pictures-uganda.jijistatic.com/24041953.webp", "size": [300, 634]}
+        ],
+        "labels": [
+          {"type": "rating", "value": 5.0},
+          {"type": "age", "value": "5+ years on Jiji"}
+        ],
+        "price_obj": {"value": 400000, "view": "USh 400,000"},
+        "price_title": "USh 400,000",
+        "region": "Kampala, Central Division",
+        "region_item_text": "Kampala, Central Division",
+        "title": "Laptop Lenovo ThinkPad X230 8GB Intel Core I5 HDD+SSD 320GB",
+        "url": "/central-division/computers-and-laptops/laptop-lenovo-thinkpad-x230-8gb-intel-core-i5-hdd-ssd-320gb-l6h0pqJE7CnOrI7hxXDJ34DJ.html?page=1&pos=1&cur_pos=1&ads_per_page=20&ads_count=1732&lid=hYzb8LVNF18PWX-2",
+        "user_id": 809188,
+        "seller": {
+          "user_name": "Musa Badru",
+          "user_avatar_url": "https://pictures-uganda.jijistatic.com/6206970.jpg",
+          "user_rating": 5.0
+        }
+      },
+      {
+        "attrs": [
+          {"name": "Condition", "value": "Brand New", "unit": null},
+          {"name": "Processor", "value": "Intel Core Ultra 7", "unit": null},
+          {"name": "Display Size", "value": "14\"", "unit": null}
+        ],
+        "guid": "4cSGfD8yoMvQN9yOhRMsj7eX",
+        "id": 8722511,
+        "image_obj": {"url": "https://pictures-uganda.jijistatic.com/30509200.webp"},
+        "images": [
+          {"url": "https://pictures-uganda.jijistatic.com/30509200.webp", "size": [300, 400]}
+        ],
+        "labels": [],
+        "price_obj": {"value": 2500000, "view": "USh 2,500,000"},
+        "price_title": "USh 2,500,000",
+        "region": "Kampala, Central Division",
+        "region_item_text": "Kampala, Central Division",
+        "title": "New Laptop Lenovo ThinkBook 14 G8 IAL 16GB Intel Core Ultra 7 SSD 512GB",
+        "url": "/central-division/computers-and-laptops/new-laptop-lenovo-thinkbook-14-g8-ial-16gb-intel-core-ultra-7-ssd-512gb-4cSGfD8yoMvQN9yOhRMsj7eX.html?page=1&pos=6&cur_pos=6&ads_per_page=20&ads_count=1732&lid=hYzb8LVNF18PWX-2",
+        "user_id": 2716094
+      },
+      {
+        "attrs": [
+          {"name": "Condition", "value": "Brand New", "unit": null}
+        ],
+        "guid": "",
+        "id": null,
+        "images": [],
+        "labels": [],
+        "price_obj": {},
+        "region": null,
+        "title": "Edge case: no guid, no price, should be filtered out",
+        "url": "",
+        "user_id": 1
+      }
+    ]
+  }
+}
