@@ -123,24 +123,84 @@ export function normalizeAdvert(raw: Advert): Listing | null {
 	};
 }
 
-async function fetchPage(params: Required<SearchParams>, sort: string, page: number, request: typeof fetch): Promise<Advert[]> {
+const JIJI_FETCH_HEADERS = {
+	accept: "*/*",
+	"accept-language": "en-US,en;q=0.7",
+	"user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+	"sec-fetch-dest": "empty", "sec-fetch-mode": "cors", "sec-fetch-site": "same-origin",
+	cookie: "rid=jiji.ug; lang=en",
+};
+
+// Log only request position and a few diagnostic response headers. Never log the
+// query, full URL, response body or user-supplied filters in Worker tail logs.
+async function requestJiji(url: string, phase: "search" | "category-redirect", page: number, sort: string, request: typeof fetch): Promise<Response> {
+	let response: Response;
+	try {
+		response = await request(url, {
+			headers: JIJI_FETCH_HEADERS,
+			signal: AbortSignal.timeout(10_000),
+		});
+	} catch (error) {
+		console.error("Marketplace upstream request failed", {
+			phase, page, sort, errorType: error instanceof Error ? error.name : "unknown",
+		});
+		throw new Error("Marketplace upstream request failed");
+	}
+	if (!response.ok) {
+		console.error("Marketplace upstream HTTP error", {
+			phase, page, sort, status: response.status,
+			cfRay: response.headers.get("cf-ray"),
+			cfMitigated: response.headers.get("cf-mitigated"),
+			retryAfter: response.headers.get("retry-after"),
+			server: response.headers.get("server"),
+			contentType: response.headers.get("content-type"),
+		});
+		throw new Error(`Jiji ${phase} returned HTTP ${response.status}`);
+	}
+	return response;
+}
+
+async function fetchPage(params: Required<SearchParams>, sort: string, page: number, request: typeof fetch, allowRedirect = true): Promise<Advert[]> {
 	const url = new URL(SEARCH_URL);
 	url.search = new URLSearchParams({
 		query: params.query, init_page: "true", page: String(page), webp: "true", sort,
 		...(params.region ? { region: params.region } : {}),
 	}).toString();
-	const response = await request(url.toString(), {
-		headers: {
-		accept: "*/*",
-		"accept-language": "en-US,en;q=0.7",
-		"user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
-		"sec-fetch-dest": "empty", "sec-fetch-mode": "cors", "sec-fetch-site": "same-origin",
-		cookie: "rid=jiji.ug; lang=en",
-	},
-		signal: AbortSignal.timeout(10_000),
-	});
-	if (!response.ok) throw new Error(`Jiji returned HTTP ${response.status}`);
+	const response = await requestJiji(url.toString(), "search", page, sort, request);
 	const data = obj(await response.json());
+
+	// For broad/popular queries Jiji doesn't return adverts_list at all: instead it
+	// returns {status:"redirect", url:"/some-category?filter_attr_..."} pointing at a
+	// category page. Previously this fell through to `array(obj(undefined).adverts)`
+	// -> [] , which looked like (and got cached as) a genuine "zero results" response.
+	// We now follow the redirect once by re-querying the same listing API with the
+	// category's query-string filters merged in and the free-text query dropped,
+	// mirroring what the category page itself would request.
+	if (data.status === "redirect" && typeof data.url === "string") {
+		if (!allowRedirect) throw new Error(`Jiji redirected again from ${data.url}; not following a second time`);
+		const redirectUrl = new URL(data.url, BASE_URL);
+		const redirectParams = new URLSearchParams({
+			init_page: "true", page: String(page), webp: "true", sort,
+			...(params.region ? { region: params.region } : {}),
+		});
+		for (const [key, value] of redirectUrl.searchParams) redirectParams.set(key, value);
+		// NOTE: unverified — confirm Jiji's listing API accepts a bare category slug via
+		// `slug`; if it instead needs the category id or a different param name, adjust here.
+		redirectParams.set("slug", redirectUrl.pathname.replace(/^\//, ""));
+		const redirectResponse = await requestJiji(`${SEARCH_URL}?${redirectParams.toString()}`, "category-redirect", page, sort, request);
+		const redirectData = obj(await redirectResponse.json());
+		if (!("adverts_list" in redirectData)) {
+			throw new Error(`Jiji redirect to ${data.url} did not return adverts_list`);
+		}
+		return array(obj(redirectData.adverts_list).adverts).map(obj);
+	}
+
+	if (!("adverts_list" in data)) {
+		// A 200 with valid JSON but no recognizable shape (e.g. a bot-check/placeholder
+		// payload) is NOT the same as "zero results" -- surface it as an error so it is
+		// never cached as an empty result.
+		throw new Error("Jiji response did not contain adverts_list or a redirect");
+	}
 	return array(obj(data.adverts_list).adverts).map(obj);
 }
 

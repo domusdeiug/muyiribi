@@ -256,6 +256,7 @@ function createServer(sql: Sql) {
 			return {
 				content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
 				structuredContent: result,
+				...("error" in result ? { isError: true } : {}),
 				_meta: marketplaceWidgetMeta,
 			};
 		},

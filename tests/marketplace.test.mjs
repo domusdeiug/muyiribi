@@ -62,6 +62,37 @@ test('explicit price sort stays one unscored page', async () => {
   assert.deepEqual(seen.map(p => p.get('sort')), ['price']);
 });
 
+test('upstream HTTP failures log safe request position and diagnostic headers', async () => {
+  const original = console.error;
+  const logs = [];
+  console.error = (...args) => logs.push(args);
+  const query = 'private shopping query';
+  try {
+    const blocked = async () => new Response('blocked', {
+      status: 403, headers: { 'cf-ray': 'test-ray', 'cf-mitigated': 'challenge', 'content-type': 'text/html' },
+    });
+    await assert.rejects(searchJiji({ query }, blocked), /HTTP 403/);
+    assert.deepEqual(logs[0][1], {
+      phase: 'search', page: 1, sort: 'new', status: 403,
+      cfRay: 'test-ray', cfMitigated: 'challenge', retryAfter: null,
+      server: null, contentType: 'text/html',
+    });
+    assert.ok(!JSON.stringify(logs).includes(query), 'shopping query must not be logged');
+
+    logs.length = 0;
+    let count = 0;
+    await assert.rejects(searchJiji({ query }, async () => {
+      if (++count === 1) return Response.json({ status: 'redirect', url: '/computers-and-laptops' });
+      return new Response('blocked', { status: 403, headers: { 'retry-after': '60' } });
+    }), /HTTP 403/);
+    assert.equal(logs[0][1].phase, 'category-redirect');
+    assert.equal(logs[0][1].retryAfter, '60');
+    assert.ok(!JSON.stringify(logs).includes(query));
+  } finally {
+    console.error = original;
+  }
+});
+
 test('cache hit, unknown source, and upstream errors', async () => {
   const store = new Map();
   const cache = {
