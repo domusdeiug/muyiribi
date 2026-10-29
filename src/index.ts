@@ -178,7 +178,7 @@ function toPublicListing(row: Listing) {
 function createServer(sql: Sql) {
 	const server = new McpServer({
 		name: "Muyiribi",
-		version: "1.0.0",
+		version: "1.1.0",
 		icons: [
 			{
 				src: `${PUBLIC_ASSET_ORIGIN}/logo.png`,
@@ -212,7 +212,7 @@ function createServer(sql: Sql) {
 		"marketplace-results-widget",
 		MARKETPLACE_WIDGET_URI,
 		{
-			description: "Product cards with photos linking to Jiji listings",
+			description: "Product cards with photos linking to original marketplace listings",
 			mimeType: "text/html+skybridge",
 			_meta: marketplaceWidgetMeta,
 		},
@@ -229,19 +229,19 @@ function createServer(sql: Sql) {
 	server.registerTool(
 		"search_marketplace",
 		{
-			description: "Search Jiji Uganda product listings. Supply complete alternate item phrases in synonyms (e.g. wedding dress, bridal gown for wedding gown). Newest listings are filtered by whole-phrase relevance, ranked and capped; price is in UGX. Results link to Jiji; users reveal contacts there. Explicit price sorts return a single unscored page. This does not search Muyiribi businesses.",
+			description: "Search available marketplace product listings in Uganda so users can compare options. Supply complete alternate item phrases in synonyms (e.g. wedding dress and bridal gown for wedding gown). Relevant listings are ranked and capped; price bounds are in UGX. Results include original marketplace links; confirm current availability, condition and seller details there. Explicit price sorts return a single unscored page. For businesses or service providers instead, use search_businesses.",
 			inputSchema: z.object({
 				query: z.string().min(1).describe("Item to search for, e.g. wedding gown"),
 				synonyms: z.array(z.string()).optional().describe("Complete alternative item phrases, e.g. ['wedding dress', 'bridal gown']"),
 				min_price: z.number().int().min(0).optional().describe("Minimum price in UGX"),
 				max_price: z.number().int().min(0).optional().describe("Maximum price in UGX"),
-				region: z.string().optional().describe("Jiji region slug, e.g. central-division"),
+				region: z.string().optional().describe("Marketplace region slug, if known; omit rather than guessing a district-to-slug mapping"),
 				sort: z.enum(["rel", "new", "price", "price_desc"]).default("rel").describe("rel/new: newest-first with phrase ranking; price sorts: one unscored page"),
 				page: z.number().int().min(1).default(1),
 				target_results: z.number().int().min(1).max(50).default(15).describe("Maximum results returned"),
-				max_fetch_pages: z.number().int().min(1).max(10).default(6).describe("Maximum Jiji pages fetched"),
+				max_fetch_pages: z.number().int().min(1).max(10).default(6).describe("Maximum marketplace pages fetched"),
 				min_relevance_score: z.number().int().min(1).max(20).default(1).describe("Minimum complete-phrase score; two-word phrases score at least 2"),
-				source: z.string().default("jiji").describe("Marketplace source; currently only jiji"),
+				source: z.string().optional().describe("Optional marketplace source identifier if supported; omit to use the default source"),
 			}),
 			annotations: {
 				title: "Search marketplace",

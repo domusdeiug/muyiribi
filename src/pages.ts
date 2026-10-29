@@ -28,21 +28,21 @@ main{min-height:calc(100vh - 160px);padding:48px 0 64px}h1{font-size:clamp(32px,
 
 export function layout(title: string, body: string, user?: { phone: string } | null): string {
 	const nav = user
-		? `<a href="/search">Search</a><a href="/dashboard">Dashboard</a><a href="/add">Add business</a><a href="/pricing">Pricing</a><a href="/logout">Log out</a>`
-		: `<a href="/search">Find businesses</a><a href="/login">Log in</a><a href="/signup">Sign up</a>`;
+		? `<a href="/search">Find businesses</a><a href="/dashboard">Dashboard</a><a href="/add">Add business</a><a href="/pricing">Business plans</a><a href="/logout">Log out</a>`
+		: `<a href="/search">Find businesses</a><a href="/info">About</a><a href="/login">Log in</a><a href="/signup">List your business</a>`;
 	return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)} · Muyiribi</title>
-<meta name="description" content="Find trusted businesses and services across Uganda with Muyiribi.">
+<title>${esc(title)} · UgOnline · Muyiribi</title>
+<meta name="description" content="Find Ugandan businesses and list your own with Muyiribi, the business directory from UgOnline.">
 <meta property="og:image" content="https://ug-online.domus-dei-tech.workers.dev/logo.png">
 <link rel="icon" href="/logo.png" type="image/png">
 <link rel="apple-touch-icon" href="/logo.png">
 <style>${STYLE}</style></head>
 <body>
-<header class="site-header"><nav class="shell"><a class="brand" href="/"><img class="brand-logo" src="/logo.png" alt="">Muyiribi</a><div class="nav-links">${nav}</div></nav></header>
+<header class="site-header"><nav class="shell"><a class="brand" href="/"><img class="brand-logo" src="/logo.png" alt="">UgOnline · Muyiribi</a><div class="nav-links">${nav}</div></nav></header>
 <main class="shell">${body}</main>
-<footer class="site-footer"><div class="shell footer-inner"><span>© ${new Date().getFullYear()} Muyiribi · Designed and Built by Domus Dei Uganda</span><div class="footer-links"><a href="/info">About</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/support">Support</a></div></div></footer>
+<footer class="site-footer"><div class="shell footer-inner"><span>© ${new Date().getFullYear()} UgOnline · Muyiribi · Built by Domus Dei Uganda</span><div class="footer-links"><a href="/info">About</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/support">Support</a></div></div></footer>
 <script>
 document.querySelectorAll('[data-toggle-pw]').forEach(function(btn){
   btn.addEventListener('click', function(){
@@ -59,7 +59,7 @@ document.querySelectorAll('[data-toggle-pw]').forEach(function(btn){
 export function landingPage(user: { phone: string } | null): string {
 	return layout(
 		"Home",
-		`<section class="hero"><div class="hero-grid"><div><p class="eyebrow">Uganda's muyiribi business directory</p><h1>Find the right business, right in your location.</h1><p class="lead">Search local businesses by what they offer and where they are or list your own so people and AI tools can discover it.</p><div class="actions">${user ? `<a class="button" href="/dashboard">Open your dashboard</a><a class="button secondary" href="/add">Add a business</a>` : `<a class="button" href="/signup">List your business free</a><a class="button secondary" href="/login">Log in</a>`}</div><p class="muted">List your business for free and be discovered</p></div><aside class="search-card"><p class="eyebrow">Search the directory</p><h2>What business/service are you looking for?</h2><p class="muted">Try searching the business name if you know it or use key words such as “solar installation”, "tv repairman", "hairdresser", etc. Add the location you are in to get those near you.</p><form method="get" action="/search"><label for="home-keyword">Business or service</label><input id="home-keyword" name="keyword" placeholder="e.g. phone repair" required><label for="home-district">District or town</label><input id="home-district" name="district" placeholder="e.g. Kampala"><button type="submit">Search businesses →</button></form></aside></div></section><section style="padding:38px 0"><p class="eyebrow">How it helps</p><div class="grid"><article class="card feature-card"><div class="feature-icon">01</div><h3>Search directly</h3><p class="muted">Find businesses easily by service, category, or location.</p></article><article class="card feature-card"><div class="feature-icon">02</div><h3>Get discovered</h3><p class="muted">Customers and AI assistants can match your business to relevant searches.</p></article><article class="card feature-card"><div class="feature-icon">03</div><h3>Stay up to date</h3><p class="muted">Use your dashboard to keep every business detail accurate as you grow.</p></article></div></section>`,
+		`<section class="hero"><div class="hero-grid"><div><p class="eyebrow">The Muyiribi business directory by UgOnline</p><h1>Help customers find your business.</h1><p class="lead">Search Ugandan businesses by what they offer and where they work. Own one? List it for free so people and AI assistants can discover and contact you.</p><div class="actions">${user ? `<a class="button" href="/dashboard">Open your dashboard</a><a class="button secondary" href="/add">Add a business</a>` : `<a class="button" href="/signup">List your business free</a><a class="button secondary" href="/search">Find businesses</a>`}</div><p class="muted">Business listings are separate from product adverts on external marketplaces.</p></div><aside class="search-card"><p class="eyebrow">Search businesses</p><h2>Which business or service do you need?</h2><p class="muted">Search by business name or service, such as “solar installation” or “phone repair”. Add a district to narrow the results.</p><form method="get" action="/search"><label for="home-keyword">Business or service</label><input id="home-keyword" name="keyword" placeholder="e.g. phone repair" required><label for="home-district">District or town</label><input id="home-district" name="district" placeholder="e.g. Kampala"><button type="submit">Search businesses →</button></form></aside></div></section><section style="padding:38px 0"><p class="eyebrow">How it helps</p><div class="grid"><article class="card feature-card"><div class="feature-icon">01</div><h3>Find local businesses</h3><p class="muted">Browse businesses by service, category, or district.</p></article><article class="card feature-card"><div class="feature-icon">02</div><h3>Get discovered</h3><p class="muted">Create a free business listing that customers and AI assistants can find.</p></article><article class="card feature-card"><div class="feature-icon">03</div><h3>Keep details current</h3><p class="muted">Use your dashboard to update your business information.</p></article></div><div class="card" style="margin-top:20px"><h3>Looking for a product instead?</h3><p class="muted">UgOnline · Muyiribi also helps you compare marketplace listings through your AI assistant. This website's search is for businesses, not individual products.</p><a href="/info">How UgOnline works →</a></div></section>`,
 		user,
 	);
 }
@@ -69,16 +69,16 @@ export function termsPage(): string {
 		"Terms of Service",
 		`
 <h1>Terms of Service</h1>
-<p><em>Last updated: ${new Date().toISOString().slice(0, 10)}</em></p>
-<p>Domus Dei Uganda operates Muyiribi a public directory of businesses and service providers in Uganda. By using this site or the MCP server, you agree to the following:</p>
+<p><em>Last updated: 29 October 2026</em></p>
+<p>Domus Dei Uganda operates UgOnline · Muyiribi: this website's public Ugandan business directory and an AI-accessible tool that searches external marketplace listings. By using the site or MCP server, you agree to the following:</p>
 <h2>Listings</h2>
 <p>Anyone may search the directory. Business owners may create an account and submit a listing. You confirm that information you submit about a business is accurate and that you are authorised to list it. We may remove any listing that is false, abusive, or violates these terms.</p>
 <h2>Paid tiers</h2>
 <p>Paid tiers affect ranking and listing limits as described on the <a href="/pricing">pricing page</a>. Payments are processed by a third-party provider; refunds are handled on a case-by-case basis — contact <a href="/support">support</a>.</p>
-<h2>AI access</h2>
-<p>This directory is also exposed to AI assistants (e.g. via MCP, or app connectors) so that users of those assistants can search it. The same listing data shown on this site is what such assistants can see and return.</p>
+<h2>AI access and marketplace searches</h2>
+<p>AI assistants can search the business directory and retrieve public business contact details. They can also search product adverts from supported external marketplaces. Marketplace listings, prices, photos and seller details come from those third parties, may change or be unavailable, and do not become Muyiribi business listings. Comparisons are unsponsored and are not a guarantee of the lowest price or best purchase. Follow the original marketplace link to check details and contact the seller; we do not buy, reserve, or reveal protected seller contacts for you.</p>
 <h2>No warranty</h2>
-<p>Listings are provided by third parties. We do not verify every business and make no guarantee of quality, availability, or accuracy. Use of any listed business or service is at your own risk.</p>
+<p>Business information is supplied by business owners; product adverts are supplied by external marketplaces. We do not verify every listing or guarantee quality, authenticity, accuracy, pricing, availability, or delivery. Use your judgment and confirm details with the business or seller before a transaction.</p>
 <h2>Changes</h2>
 <p>We may update these terms at any time; continued use after a change means you accept the update.</p>
 <h2>Contact</h2>
@@ -92,13 +92,13 @@ export function privacyPage(): string {
 		"Privacy Policy",
 		`
 <h1>Privacy Policy</h1>
-<p><em>Last updated: ${new Date().toISOString().slice(0, 10)}</em></p>
+<p><em>Last updated: 29 October 2026</em></p>
 <h2>What we collect</h2>
 <p>When you create an account: your phone number and a hashed password. When you add a listing: the business details you submit (name, category, district, description, contact info). When you pay for a tier: payment status and reference IDs from our payment provider — we do not store your card or mobile money PIN.</p>
 <h2>How we use it</h2>
 <p>To operate the directory: authenticate you, display your listing, rank listings by tier, and process payments. We do not sell personal data to third parties.</p>
-<h2>AI assistants</h2>
-<p>Listing data (business name, category, district, description, and the contact details you chose to make public) is retrievable through our public search API and MCP server, which AI assistants such as Claude and ChatGPT may query on behalf of their users. Only data you submitted as part of a public listing is exposed this way — account passwords and private payment details are never exposed through these interfaces.</p>
+<h2>AI assistants and marketplace searches</h2>
+<p>Public business details you choose to list (including contact details) can be retrieved through our public search and MCP tools by AI assistants. Account passwords and private payment details are not exposed through these interfaces. Product searches through the AI tool send your search terms and applicable filters to external marketplaces; their responses may include adverts, prices, links, and images. Search results are cached for up to 20 minutes by our Worker, and product images may load from the marketplace's image provider in your client. External marketplaces may process requests under their own privacy policies.</p>
 <h2>Retention</h2>
 <p>We keep account and listing data for as long as your account is active. You can request deletion — see <a href="/support">support</a>.</p>
 <h2>Contact</h2>
@@ -112,12 +112,12 @@ export function supportPage(): string {
 		"Support",
 		`
 <h1>Support</h1>
-<p>Need help with your account, a listing, a payment, or something you found through an AI assistant using this directory?</p>
+<p>Need help with your account, a business listing, a payment, or a marketplace result you found through the AI assistant?</p>
 <p><strong>Email:</strong> <a href="mailto:domusdeiug@gmail.com">domusdeiug@gmail.com</a></p>
 <p><strong>WhatsApp / Phone:</strong> <a href="https://wa.me/256784786467">+256 784 786467</a></p>
 <h2>Common requests</h2>
 <ul>
-<li>Report an incorrect or outdated listing</li>
+<li>Report an incorrect business listing or an issue with a marketplace search result (for a seller's advert, also contact the original marketplace)</li>
 <li>Request removal of your business from the directory</li>
 <li>Payment or tier issues</li>
 <li>Report misuse via an AI assistant connector</li>
@@ -129,16 +129,18 @@ export function supportPage(): string {
 
 export function infoPage(): string {
 	return layout(
-		"About Muyiribi",
+		"About",
 		`
-<h1>About Muyiribi</h1>
-<p>Muyiribi is a directory of businesses and service providers from across Uganda; built so that people (and increasingly, AI assistants acting on their behalf) can find a real business by what it does, where it is, or what it's called.</p>
-<h2>How it works</h2>
-<p>Business owners create a free account and add a listing: category, district, description, and contact details. Visitors search by keyword, category, or district. Listings can also be found through AI assistants such as Claude and ChatGPT, which can query the directory directly via MCP.</p>
-<h2>Tiers</h2>
-<p>Free accounts can get started at no cost. Paid tiers allow more listings and better ranking in search results — see <a href="/pricing">pricing</a>.</p>
+<h1>About UgOnline · Muyiribi</h1>
+<p>UgOnline helps people in Uganda find what they need. Muyiribi is our local name for the experience: you can discuss products with your AI assistant while it searches available marketplace listings and helps you compare options. This website focuses on our own business directory, where people find local businesses and owners make themselves discoverable.</p>
+<h2>Search and compare products with AI</h2>
+<p>Describe the item, your budget, and the details that matter to you. The UgOnline · Muyiribi AI connector searches supported marketplace listings and returns links to the original adverts for your comparison. It does not cover every seller or guarantee the lowest price. Always confirm price, condition, availability, delivery and purchase terms with the seller on the original marketplace. We do not handle purchases or reveal protected seller contact information.</p>
+<h2>Find or list a business</h2>
+<p>The <a href="/search">website search</a> finds businesses by name, service, category or district; it does not search individual marketplace products. Owners can <a href="/signup">list a business for free</a>, add contact details and manage their listing. Businesses can also be found by AI assistants through the directory tools. A business listing here does not publish products to other marketplaces.</p>
+<h2>Business plans</h2>
+<p>Optional <a href="/pricing">paid business plans</a> allow more directory listings and affect business-directory search order. Product comparisons are unsponsored; business plan status is not a recommendation of a marketplace product.</p>
 <h2>Operator</h2>
-<p>Muyiribi is operated by Domus Dei Uganda. Contact details are on the <a href="/support">support page</a>.</p>
+<p>UgOnline · Muyiribi is operated by Domus Dei Uganda. Contact details are on the <a href="/support">support page</a>.</p>
 `,
 	);
 }
@@ -405,7 +407,7 @@ ${cta}
 	return layout(
 		"Pricing",
 		`<p class="eyebrow">Simple plans</p><h1>Grow your reach</h1>
-<p class="lead">List more businesses, rank higher in search, and verify your business contacts and location.</p>
+<p class="lead">Business-directory plans let you list more businesses, rank higher in directory search, and verify a business contact number. They do not affect product recommendations.</p>
 ${opts.error ? `<div class="msg err">${esc(opts.error)}</div>` : ""}
 <div class="pricing-grid">${cards}</div>`,
 		user,

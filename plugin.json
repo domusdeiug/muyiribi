@@ -1,31 +1,35 @@
 {
-	"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-	"name": "uganda-business-directory",
-	"version": "0.1.1",
-	"description": "Search and look up Ugandan businesses and service providers (by name, category, or district) through the Muyiribi directory, backed by a live Postgres database.",
-	"author": {
-		"name": "Domus Dei Uganda",
-		"email": "domusdeiug@gmail.com",
-		"url": "https://domusdeiug.com"
-	},
-	"homepage": "https://github.com/domusdeiug/muyiribi",
-	"repository": "https://github.com/domusdeiug/muyiribi",
-	"license": "UNLICENSED",
-	"keywords": ["uganda", "business directory", "kampala", "services", "local search", "mcp"],
-	"extensions": {
-		"com.openai": {
-			"interface": {
-				"capabilities": ["Search"],
-				"category": "Research",
-				"defaultPrompt": "Find a business or service provider in Uganda using the Muyiribi directory. You can search by keyword (e.g. 'tv repair'), category, or district (e.g. 'Kampala').",
-				"developerName": "Domus Dei Uganda",
-				"developerUrl": "https://domusdeiug.com",
-				"displayName": "UgandaBusinessDirectory",
-				"logo": "./assets/logo.png",
-				"composerIcon": "./assets/logo.png",
-				"longDescription": "Muyiribi is a live directory of Ugandan businesses and service providers. Use search_businesses to find matches by keyword, category, and/or district; use get_business to fetch full contact details (phone, WhatsApp, website, email) for one listing; use list_categories to see all available categories before narrowing a search.",
-				"shortDescription": "Find verified Uganda businesses and services"
-			}
-		}
-	}
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "uganda-business-directory",
+  "version": "0.2.0",
+  "description": "Shop with an AI assistant that searches available marketplace listings in Uganda and compares options. Find local businesses and list your own in the Muyiribi directory.",
+  "author": {
+    "name": "Domus Dei Uganda",
+    "email": "domusdeiug@gmail.com",
+    "url": "https://domusdeiug.com"
+  },
+  "homepage": "https://ug-online.domus-dei-tech.workers.dev/info",
+  "repository": "https://github.com/domusdeiug/muyiribi",
+  "license": "UNLICENSED",
+  "keywords": ["ugonline", "muyiribi", "uganda", "shopping", "marketplace search", "compare products", "business directory"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "capabilities": ["Search"],
+        "category": "Shopping",
+        "defaultPrompt": ["Help me find and compare a product in Uganda. I can share my budget and location."],
+        "developerName": "Amanyire Daniel",
+        "developerUrl": "https://domusdeiug.com",
+        "displayName": "UgOnline · Muyiribi",
+        "logo": "./assets/logo.png",
+        "composerIcon": "./assets/logo.png",
+        "longDescription": "Search available Ugandan marketplace listings, compare prices and item details with your AI assistant, and follow original links to sellers. You can also find Ugandan businesses in Muyiribi's directory or get a link to list your own business for free. Purchases and paid business plans are handled outside the plugin.",
+        "shortDescription": "Find products and compare options in Uganda",
+        "termsOfServiceURL": "https://ug-online.domus-dei-tech.workers.dev/terms",
+        "privacyPolicyURL": "https://ug-online.domus-dei-tech.workers.dev/privacy",
+        "supportURL": "https://ug-online.domus-dei-tech.workers.dev/support",
+        "websiteURL": "https://ug-online.domus-dei-tech.workers.dev/info"
+      }
+    }
+  }
 }

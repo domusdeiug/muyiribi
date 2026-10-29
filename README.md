@@ -1,18 +1,18 @@
 # Muyiribi
 
-Business directory for Uganda. Cloudflare Worker + Neon Postgres, with a simple web UI and an MCP endpoint for AI tools.
+UgOnline · Muyiribi helps people compare marketplace products with an AI assistant, while its website focuses on a Ugandan business directory. Cloudflare Worker + Neon Postgres, with a business-directory web UI and an MCP endpoint for both journeys.
 
 ## Routes
 
-- `/` landing page
-- `/search` public business search by keyword, category, and district
+- `/` business-directory landing page
+- `/search` public **business** search by keyword, category, and district (not a product-search page)
 - `/signup`, `/login`, `/logout` phone + password accounts (password show/hide toggle)
 - `/dashboard` manage the signed-in account's business listings and plan capacity
 - `/add` add a business listing (creation limit depends on tier; description min 40 characters)
 - `/listings/:id/edit` securely edit a listing owned by the signed-in account
 - `/mcp` MCP endpoint with business-directory tools (`search_businesses`, `get_business`, `list_categories`, `get_listing_signup_link`) and `search_marketplace` for Jiji Uganda products
 
-Results are ranked by tier, highest first (black, green, blue, free).
+Business-directory results are ranked by tier; marketplace product results are separate, unsponsored, and ranked by title relevance and recency.
 
 ## Setup
 

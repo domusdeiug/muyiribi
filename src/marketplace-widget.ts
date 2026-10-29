@@ -77,7 +77,7 @@ export const MARKETPLACE_WIDGET_HTML = /* html */ `
         a.href = link;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
-        a.textContent = 'View on Jiji';
+        a.textContent = 'View original listing';
         body.appendChild(a);
       }
       card.appendChild(body);

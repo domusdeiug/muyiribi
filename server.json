@@ -1,10 +1,10 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.domusdeiug/muyiribi",
-  "title": "Uganda Online Business Directory",
-  "description": "Search a Ugandan business directory for businesses and services by keyword, category, or district",
-  "version": "1.0.0",
-  "websiteUrl": "https://github.com/domusdeiug/muyiribi",
+  "title": "UgOnline · Muyiribi",
+  "description": "Search marketplace listings in Uganda to compare products with an AI assistant, find local businesses, and learn how to list your own business in the Muyiribi directory.",
+  "version": "1.1.0",
+  "websiteUrl": "https://ug-online.domus-dei-tech.workers.dev/info",
   "repository": {
     "url": "https://github.com/domusdeiug/muyiribi",
     "source": "github"
