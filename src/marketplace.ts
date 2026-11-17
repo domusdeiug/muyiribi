@@ -3,8 +3,9 @@
 const BASE_URL = "https://jiji.ug";
 // Jiji's Cloudflare-fronted origin blocks requests made directly from Cloudflare
 // Workers (likely IP/fingerprint based, not a CORS issue — there is no browser
-// involved in this server-to-server call). Routed through proxy.cors.dev, which
-// requires an X-Cors-Key header, set as the CORS_DEV_KEY Worker secret.
+// involved in this server-to-server call). Routed through proxy.cors.dev's free
+// tier: GET/HEAD needs no key, and custom headers are dropped anyway (a
+// Connection/key is only for Authorization or custom headers we don't need here).
 const SEARCH_URL = `https://proxy.cors.dev/${BASE_URL}/api_web/v1/listing`;
 const NOTE = "Listings were ranked by complete title phrase matches, not by the user's full stated needs — check attrs/condition/price before presenting.";
 const TTL_SECONDS = 20 * 60;
@@ -127,21 +128,23 @@ export function normalizeAdvert(raw: Advert): Listing | null {
 	};
 }
 
-const JIJI_FETCH_HEADERS = {
-	accept: "*/*",
-	"accept-language": "en-US,en;q=0.7",
-	"user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
-	"sec-fetch-dest": "empty", "sec-fetch-mode": "cors", "sec-fetch-site": "same-origin",
-	cookie: "rid=jiji.ug; lang=en",
-};
-
 // Log only request position and a few diagnostic response headers. Never log the
 // query, full URL, response body or user-supplied filters in Worker tail logs.
+// X-Cors-Key is sent so the request is attributed to our Connection (jiji.ug is an
+// allowed destination on it) and shows up in the cors.dev dashboard for debugging.
+// Origin is sent explicitly and must match one of the Connection's allowed origins
+// (https://ug-online.domus-dei-tech.workers.dev): a Worker's server-side fetch does
+// not send a browser Origin header on its own, and cors.dev rejects a keyed request
+// with no matching Origin as origin_not_allowed (verified). No other custom headers
+// are sent since the proxy drops them regardless.
 async function requestJiji(url: string, phase: "search" | "category-redirect", page: number, sort: string, request: typeof fetch, corsDevKey: string): Promise<Response> {
 	let response: Response;
 	try {
 		response = await request(url, {
-			headers: { ...JIJI_FETCH_HEADERS, "X-Cors-Key": corsDevKey },
+			headers: {
+				"X-Cors-Key": corsDevKey,
+				"Origin": "https://ug-online.domus-dei-tech.workers.dev",
+			},
 			signal: AbortSignal.timeout(10_000),
 		});
 	} catch (error) {
@@ -158,6 +161,7 @@ async function requestJiji(url: string, phase: "search" | "category-redirect", p
 			retryAfter: response.headers.get("retry-after"),
 			server: response.headers.get("server"),
 			contentType: response.headers.get("content-type"),
+			corsSource: response.headers.get("x-cors-source"),
 		});
 		throw new Error(`Jiji ${phase} returned HTTP ${response.status}`);
 	}
