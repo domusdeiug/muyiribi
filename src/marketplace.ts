@@ -1,7 +1,11 @@
 // TypeScript port of marketplace_mcp/adapters/jiji.py and tools.search_marketplace.
 // Only Jiji's public, anonymous listing endpoint is used. Contact reveal stays on Jiji.
 const BASE_URL = "https://jiji.ug";
-const SEARCH_URL = `${BASE_URL}/api_web/v1/listing`;
+// Jiji's Cloudflare-fronted origin blocks requests made directly from Cloudflare
+// Workers (likely IP/fingerprint based, not a CORS issue — there is no browser
+// involved in this server-to-server call). Routed through proxy.cors.dev, which
+// requires an X-Cors-Key header, set as the CORS_DEV_KEY Worker secret.
+const SEARCH_URL = `https://proxy.cors.dev/${BASE_URL}/api_web/v1/listing`;
 const NOTE = "Listings were ranked by complete title phrase matches, not by the user's full stated needs — check attrs/condition/price before presenting.";
 const TTL_SECONDS = 20 * 60;
 
@@ -133,11 +137,11 @@ const JIJI_FETCH_HEADERS = {
 
 // Log only request position and a few diagnostic response headers. Never log the
 // query, full URL, response body or user-supplied filters in Worker tail logs.
-async function requestJiji(url: string, phase: "search" | "category-redirect", page: number, sort: string, request: typeof fetch): Promise<Response> {
+async function requestJiji(url: string, phase: "search" | "category-redirect", page: number, sort: string, request: typeof fetch, corsDevKey: string): Promise<Response> {
 	let response: Response;
 	try {
 		response = await request(url, {
-			headers: JIJI_FETCH_HEADERS,
+			headers: { ...JIJI_FETCH_HEADERS, "X-Cors-Key": corsDevKey },
 			signal: AbortSignal.timeout(10_000),
 		});
 	} catch (error) {
@@ -160,13 +164,13 @@ async function requestJiji(url: string, phase: "search" | "category-redirect", p
 	return response;
 }
 
-async function fetchPage(params: Required<SearchParams>, sort: string, page: number, request: typeof fetch, allowRedirect = true): Promise<Advert[]> {
+async function fetchPage(params: Required<SearchParams>, sort: string, page: number, request: typeof fetch, corsDevKey: string, allowRedirect = true): Promise<Advert[]> {
 	const url = new URL(SEARCH_URL);
 	url.search = new URLSearchParams({
 		query: params.query, init_page: "true", page: String(page), webp: "true", sort,
 		...(params.region ? { region: params.region } : {}),
 	}).toString();
-	const response = await requestJiji(url.toString(), "search", page, sort, request);
+	const response = await requestJiji(url.toString(), "search", page, sort, request, corsDevKey);
 	const data = obj(await response.json());
 
 	// For broad/popular queries Jiji doesn't return adverts_list at all: instead it
@@ -187,7 +191,7 @@ async function fetchPage(params: Required<SearchParams>, sort: string, page: num
 		// NOTE: unverified — confirm Jiji's listing API accepts a bare category slug via
 		// `slug`; if it instead needs the category id or a different param name, adjust here.
 		redirectParams.set("slug", redirectUrl.pathname.replace(/^\//, ""));
-		const redirectResponse = await requestJiji(`${SEARCH_URL}?${redirectParams.toString()}`, "category-redirect", page, sort, request);
+		const redirectResponse = await requestJiji(`${SEARCH_URL}?${redirectParams.toString()}`, "category-redirect", page, sort, request, corsDevKey);
 		const redirectData = obj(await redirectResponse.json());
 		if (!("adverts_list" in redirectData)) {
 			throw new Error(`Jiji redirect to ${data.url} did not return adverts_list`);
@@ -209,10 +213,10 @@ function withinBudget(listing: Listing, params: Required<SearchParams>): boolean
 		(listing.price_amount >= params.min_price && listing.price_amount <= params.max_price);
 }
 
-export async function searchJiji(input: SearchParams, request: typeof fetch = fetch): Promise<Product[]> {
+export async function searchJiji(input: SearchParams, request: typeof fetch = fetch, corsDevKey: string): Promise<Product[]> {
 	const params = defaults(input);
 	if (params.sort !== "rel" && params.sort !== "new") {
-		const adverts = await fetchPage(params, params.sort, params.page, request);
+		const adverts = await fetchPage(params, params.sort, params.page, request, corsDevKey);
 		return adverts.map(normalizeAdvert).filter((l): l is Listing => !!l && withinBudget(l, params)).map(stripInternal);
 	}
 	if (params.target_results <= 0) return [];
@@ -220,7 +224,7 @@ export async function searchJiji(input: SearchParams, request: typeof fetch = fe
 	const seen = new Set<string>();
 	let reachedTarget = false;
 	for (let offset = 0; offset < params.max_fetch_pages; offset++) {
-		const adverts = await fetchPage(params, "new", params.page + offset, request);
+		const adverts = await fetchPage(params, "new", params.page + offset, request, corsDevKey);
 		if (!adverts.length) break;
 		for (const advert of adverts) {
 			const listing = normalizeAdvert(advert);
@@ -268,7 +272,7 @@ async function cacheRequest(params: SearchParams): Promise<Request> {
 	return new Request(`https://marketplace-cache.internal/${hex}`);
 }
 
-export async function searchMarketplace(input: SearchParams, request: typeof fetch = fetch, cache?: Cache): Promise<SearchResult | { error: string; source: string; listings: [] }> {
+export async function searchMarketplace(input: SearchParams, corsDevKey: string, request: typeof fetch = fetch, cache?: Cache): Promise<SearchResult | { error: string; source: string; listings: [] }> {
 	const source = input.source ?? "jiji";
 	if (source !== "jiji") return { error: `Unknown marketplace source '${source}'. Available: ['jiji']`, source, listings: [] };
 	let key: Request | undefined;
@@ -281,7 +285,7 @@ export async function searchMarketplace(input: SearchParams, request: typeof fet
 		}
 	} catch (error) { console.warn("Marketplace cache read failed", error); }
 	try {
-		const listings = await searchJiji(input, request);
+		const listings = await searchJiji(input, request, corsDevKey);
 		if (cache && key) {
 			try {
 				await cache.put(key, new Response(JSON.stringify(listings), {

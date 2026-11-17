@@ -175,7 +175,7 @@ function toPublicListing(row: Listing) {
 	};
 }
 
-function createServer(sql: Sql) {
+function createServer(sql: Sql, env: Env) {
 	const server = new McpServer({
 		name: "Muyiribi",
 		version: "1.1.0",
@@ -252,7 +252,7 @@ function createServer(sql: Sql) {
 			_meta: marketplaceWidgetMeta,
 		},
 		async (params) => {
-			const result = await searchMarketplace(params, fetch, caches.default);
+			const result = await searchMarketplace(params, env.CORS_DEV_KEY, fetch, caches.default);
 			return {
 				content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
 				structuredContent: result,
@@ -1057,7 +1057,7 @@ export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const path = new URL(request.url).pathname;
 		if (path === "/mcp" || path.startsWith("/mcp/")) {
-			const handler = createMcpHandler(() => createServer(db(env)));
+			const handler = createMcpHandler(() => createServer(db(env), env));
 			return handler(request, env, ctx);
 		}
 		return handleWeb(request, env);
